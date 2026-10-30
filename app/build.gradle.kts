@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.streamlite.tv"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.streamlite.tv"
