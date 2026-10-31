@@ -1,16 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-}
-configurations.all {
-    resolutionStrategy {
-        eachDependency {
-            if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-stdlib")) {
-                useVersion("1.9.24")
-                because("Kotlin 1.9 compiler cannot read Kotlin 2.1 metadata")
-            }
-        }
-    }
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -20,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.streamlite.tv"
         minSdk = 23
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -43,9 +34,6 @@ android {
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
     }
     packaging {
         resources {
