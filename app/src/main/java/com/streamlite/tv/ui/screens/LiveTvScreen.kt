@@ -30,9 +30,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.ui.PlayerItem
+import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.EpgStore
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
@@ -45,6 +48,7 @@ import com.streamlite.tv.ui.components.CategoryChip
 import com.streamlite.tv.ui.components.ChannelLogo
 import com.streamlite.tv.ui.components.ErrorBox
 import com.streamlite.tv.ui.components.LoadingBox
+import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.ui.theme.SlBackground
 import com.streamlite.tv.ui.theme.SlText
 import com.streamlite.tv.ui.theme.SlTextDim
@@ -78,6 +82,8 @@ fun LiveTvScreen(
     var selectedCat by remember { mutableStateOf("") } // "" = All
     var channels by remember { mutableStateOf<List<ChannelItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortAsc by remember { mutableStateOf(true) }
     // XCIPTV-style: prefetch ALL streams once, category clicks filter locally (no network)
     var allStreams by remember { mutableStateOf<List<LiveStream>?>(null) }
     // App-wide EPG cache (survives navigation) + background prefetch of all programmes
@@ -107,13 +113,21 @@ fun LiveTvScreen(
         scope.launch {
             try {
                 if (client != null) {
-                    val cats = withContext(Dispatchers.IO) { client.liveCategories() }
-                    // Single bulk download of ALL live streams (XCIPTV model)
-                    val streams = withContext(Dispatchers.IO) { client.liveStreamsAll() }
+                    // Use bulk-synced data if available (from SyncScreen)
+                    val cats: List<XtreamCategory>
+                    val streams: List<LiveStream>
+                    if (DataRepository.isSynced && DataRepository.liveCategories != null) {
+                        cats = DataRepository.liveCategories!!
+                        streams = DataRepository.liveStreams!!
+                    } else {
+                        cats = withContext(Dispatchers.IO) { client.liveCategories() }
+                        // Single bulk download of ALL live streams (XCIPTV model)
+                        streams = withContext(Dispatchers.IO) { client.liveStreamsAll() }
+                        // Prefetch now/next programme for every channel in background
+                        EpgStore.prefetchAll(client, streams.map { it.streamId })
+                    }
                     categories = cats
                     allStreams = streams
-                    // Prefetch now/next programme for every channel in background
-                    EpgStore.prefetchAll(client, streams.map { it.streamId })
                     loadXtreamCategory(selectedCat)
                 } else {
                     val list = m3uAll ?: withContext(Dispatchers.IO) {
@@ -134,36 +148,119 @@ fun LiveTvScreen(
 
     LaunchedEffect(Unit) { reload() }
 
-    Column(
+    // Category counts for sidebar (XCIPTV-style "NAME (count)")
+    val catCounts = remember(allStreams, categories) {
+        val map = mutableMapOf<String, Int>()
+        allStreams?.forEach { s ->
+            map[s.categoryId] = (map[s.categoryId] ?: 0) + 1
+        }
+        map
+    }
+
+    Row(
         modifier = Modifier
             .fillMaxSize()
-            .background(SlBackground)
-            .padding(32.dp),
+            .background(SlBackground),
     ) {
-        Text("Live TV", style = MaterialTheme.typography.headlineMedium, color = SlText)
-        Spacer(Modifier.height(12.dp))
-
-        if (categories == null && error == null) {
-            Box(Modifier.height(48.dp)) { LoadingBox() }
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(listOf("all"), key = { it }) {
-                    CategoryChip("All", selectedCat.isEmpty()) {
-                        if (client != null) loadXtreamCategory("") else applyM3uFilter("")
+        // LEFT SIDEBAR: categories
+        Column(
+            modifier = Modifier
+                .width(280.dp)
+                .fillMaxSize()
+                .background(Color(0xFF0F1E2E))
+                .padding(vertical = 24.dp),
+        ) {
+            Text(
+                "Live TV",
+                style = MaterialTheme.typography.headlineSmall,
+                color = SlText,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            if (categories == null && error == null) {
+                Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    // "All" entry
+                    item(key = "all") {
+                        SidebarCategoryRow(
+                            name = "All Channels",
+                            count = allStreams?.size ?: 0,
+                            selected = selectedCat.isEmpty(),
+                            onClick = {
+                                if (client != null) loadXtreamCategory("") else applyM3uFilter("")
+                            },
+                        )
                     }
-                }
-                items(categories ?: emptyList(), key = { it.id }) { cat ->
-                    CategoryChip(cat.name, selectedCat == cat.id) {
-                        if (client != null) loadXtreamCategory(cat.id) else applyM3uFilter(cat.id)
+                    items(categories ?: emptyList(), key = { it.id }) { cat ->
+                        SidebarCategoryRow(
+                            name = cat.name,
+                            count = catCounts[cat.id] ?: 0,
+                            selected = selectedCat == cat.id,
+                            onClick = {
+                                if (client != null) loadXtreamCategory(cat.id) else applyM3uFilter(cat.id)
+                            },
+                        )
                     }
                 }
             }
         }
 
+        // RIGHT: channel list
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .padding(24.dp),
+        ) {
+        // Search + Sort row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                textStyle = TextStyle(color = SlText, fontSize = 15.sp),
+                singleLine = true,
+                decorationBox = { inner ->
+                    Box {
+                        if (searchQuery.isEmpty()) Text("Search channels...", color = SlTextDim, fontSize = 14.sp)
+                        inner()
+                    }
+                },
+            )
+            Card(
+                onClick = { sortAsc = !sortAsc },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF0F1E2E),
+                    contentColor = SlText,
+                ),
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(if (sortAsc) "A-Z ↓" else "Z-A ↑", fontSize = 14.sp)
+                }
+            }
+        }
         Spacer(Modifier.height(12.dp))
-
         // Capture once: avoids NPE if state changes between null-check and usage
-        val ch = channels
+        // Apply search filter + sort
+        val ch = channels?.let { list ->
+            var result = if (searchQuery.isBlank()) list
+                else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            result = if (sortAsc) result.sortedBy { it.name.lowercase() }
+                else result.sortedByDescending { it.name.lowercase() }
+            result
+        }
         val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -194,6 +291,46 @@ fun LiveTvScreen(
                     }
                 }
             }
+        }
+        } // content Column
+    } // Row
+}
+
+@Composable
+private fun SidebarCategoryRow(
+    name: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) SlAccent else Color.Transparent,
+            contentColor = if (selected) Color.Black else SlText,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                name,
+                fontSize = 15.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "($count)",
+                fontSize = 13.sp,
+                color = if (selected) Color.Black else SlTextDim,
+            )
         }
     }
 }
