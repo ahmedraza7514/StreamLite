@@ -12,8 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.item
+import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
@@ -44,7 +45,7 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 6.dp, bottom = 28.dp),
         )
 
-        TvLazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             item {
                 MenuCard(
                     title = "Live TV",

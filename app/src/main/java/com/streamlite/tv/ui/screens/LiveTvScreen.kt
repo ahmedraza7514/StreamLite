@@ -26,10 +26,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.material3.ClickableSurface
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.item
+import androidx.compose.foundation.lazy.items
+import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -84,7 +85,7 @@ fun LiveTvScreen(
         scope.launch {
             try {
                 val streams = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client!!.liveStreamsAll() else client.liveStreams(catId)
+                    if (catId.isEmpty()) client!!.liveStreamsAll() else client!!.liveStreams(catId)
                 }
                 channels = streams.map { ChannelItem(it.streamId, it.name, it.logo, it.categoryId, "") }
             } catch (e: Exception) {
@@ -140,7 +141,7 @@ fun LiveTvScreen(
         if (categories == null && error == null) {
             Box(Modifier.height(48.dp)) { LoadingBox() }
         } else {
-            TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 item(key = "all") {
                     CategoryChip("All", selectedCat.isEmpty()) {
                         if (client != null) loadXtreamCategory("") else applyM3uFilter("")
@@ -164,7 +165,7 @@ fun LiveTvScreen(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No channels here.", color = SlTextDim, fontSize = 16.sp) }
-                else -> TvLazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(channels!!, key = { it.id to it.directUrl }) { item ->
                         ChannelRow(
                             item = item,
@@ -190,7 +191,7 @@ private fun ChannelRow(
     onPlay: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    ClickableSurface(
+    Surface(
         onClick = onPlay,
         modifier = Modifier
             .fillMaxWidth()

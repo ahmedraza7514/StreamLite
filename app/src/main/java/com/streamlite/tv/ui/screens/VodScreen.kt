@@ -22,12 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.foundation.lazy.grid.GridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.material3.ClickableSurface
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.item
+import androidx.compose.foundation.lazy.items
+import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -100,7 +101,7 @@ fun VodScreen(
         if (categories == null && error == null) {
             Box(Modifier.height(48.dp)) { LoadingBox() }
         } else {
-            TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 item(key = "all") {
                     CategoryChip("All", selectedCat.isEmpty()) { loadCategory("") }
                 }
@@ -120,13 +121,13 @@ fun VodScreen(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No movies here.", color = SlTextDim, fontSize = 16.sp) }
-                else -> TvLazyVerticalGrid(
+                else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(5),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     items(movies!!, key = { it.streamId }) { m ->
-                        ClickableSurface(
+                        Surface(
                             onClick = { onPlay(client.vodUrl(m), m.name) },
                             colors = ClickableSurfaceDefaults.colors(
                                 containerColor = Color.Transparent,

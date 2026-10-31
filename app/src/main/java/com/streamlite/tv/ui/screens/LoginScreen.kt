@@ -38,7 +38,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.ClickableSurface
+import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -164,7 +164,7 @@ fun LoginScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        ClickableSurface(
+        Surface(
             onClick = { doLogin() },
             enabled = !loading,
             modifier = Modifier.fillMaxWidth(),
@@ -200,7 +200,7 @@ fun LoginScreen(
 
 @Composable
 private fun LoginTab(text: String, selected: Boolean, onClick: () -> Unit) {
-    ClickableSurface(
+    Surface(
         onClick = onClick,
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) SlAccent else SlSurface,
