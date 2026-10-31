@@ -1,15 +1,22 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Slider
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
@@ -54,6 +61,7 @@ fun PlayerScreen(
     title: String,
     playlist: List<PlayerItem> = emptyList(),
     startIndex: Int = 0,
+    info: String = "",
 ) {
     val context = LocalContext.current
     val triedTsFallback = remember { mutableStateOf(false) }
@@ -72,6 +80,12 @@ fun PlayerScreen(
     var zoomIdx by remember { mutableIntStateOf(0) }
     var showZoomMenu by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+
+    // Volume & brightness
+    var showVbPanel by remember { mutableStateOf(false) }
+    var volume by remember { mutableStateOf(1f) }
+    var brightness by remember { mutableStateOf(-1f) } // -1 = system default
+    val activity = context as? android.app.Activity
 
     fun applyZoom(idx: Int) {
         zoomIdx = idx
@@ -131,6 +145,14 @@ fun PlayerScreen(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
+                if (info.isNotEmpty()) {
+                    Text(
+                        info,
+                        fontSize = 13.sp,
+                        color = Color(0xFFAAAAAA),
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp),
+                    )
+                }
             }
         }
 
@@ -157,12 +179,51 @@ fun PlayerScreen(
             modifier = playerModifier,
         )
 
-        // Screen-size button (top-right) -> opens the 5-option zoom menu
-        Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+        // Top-right controls: ZOOM + Volume/Brightness
+        Column(
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // ZOOM button -> 5-option menu
+            Box {
+                Card(
+                    onClick = { showZoomMenu = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xAA000000),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("ZOOM", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showZoomMenu,
+                    onDismissRequest = { showZoomMenu = false },
+                ) {
+                    zoomModes.forEachIndexed { idx, mode ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    mode.label,
+                                    color = if (idx == zoomIdx) SlAccent else Color.White,
+                                    fontSize = 15.sp,
+                                )
+                            },
+                            onClick = { applyZoom(idx) },
+                        )
+                    }
+                }
+            }
+
+            // Volume/Brightness toggle button
             Card(
-                onClick = { showZoomMenu = true },
-                modifier = Modifier
-                    .padding(8.dp),
+                onClick = { showVbPanel = !showVbPanel },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xAA000000),
@@ -173,25 +234,44 @@ fun PlayerScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("ZOOM", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("VOL", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            DropdownMenu(
-                expanded = showZoomMenu,
-                onDismissRequest = { showZoomMenu = false },
-            ) {
-                zoomModes.forEachIndexed { idx, mode ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                mode.label,
-                                color = if (idx == zoomIdx) SlAccent else Color.White,
-                                fontSize = 15.sp,
-                            )
-                        },
-                        onClick = { applyZoom(idx) },
-                    )
+            // Volume & brightness sliders panel
+            if (showVbPanel) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xDD000000),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp).width(200.dp)) {
+                        Text("Volume", fontSize = 14.sp, color = Color.White)
+                        Slider(
+                            value = volume,
+                            onValueChange = {
+                                volume = it
+                                player.volume = it
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("Brightness", fontSize = 14.sp, color = Color.White)
+                        Slider(
+                            value = if (brightness < 0) 0.5f else brightness,
+                            onValueChange = {
+                                brightness = it
+                                activity?.window?.let { win ->
+                                    val lp = win.attributes
+                                    lp.screenBrightness = it
+                                    win.attributes = lp
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }
