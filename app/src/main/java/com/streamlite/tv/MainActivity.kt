@@ -16,6 +16,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,13 +36,20 @@ import com.streamlite.tv.ui.screens.SeriesDetailScreen
 import com.streamlite.tv.ui.screens.SeriesScreen
 import com.streamlite.tv.ui.screens.VodScreen
 import com.streamlite.tv.ui.theme.SlAccent
+import com.streamlite.tv.data.CrashReporter
 import com.streamlite.tv.ui.theme.SlBackground
 import com.streamlite.tv.ui.theme.StreamLiteTheme
+import com.streamlite.tv.ui.theme.SlText
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashReporter.install(this)
         setContent {
             StreamLiteTheme {
                 AppRoot()
@@ -51,6 +61,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot() {
     val context = LocalContext.current
+    var crashReport by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        crashReport = withContext(Dispatchers.IO) { CrashReporter.takeReport(context) }
+    }
+    if (crashReport != null) {
+        AlertDialog(
+            onDismissRequest = { crashReport = null },
+            title = { androidx.compose.material3.Text("Crash report", color = SlText) },
+            text = {
+                androidx.compose.material3.Text(
+                    crashReport!!,
+                    color = SlText,
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = { TextButton(onClick = { crashReport = null }) {
+                androidx.compose.material3.Text("Close", color = SlText)
+            } },
+        )
+    }
     val sessionManager = remember { SessionManager(context.applicationContext) }
     val scope = rememberCoroutineScope()
     val navStack = remember { mutableStateListOf<Screen>() }
