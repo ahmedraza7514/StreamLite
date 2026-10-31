@@ -64,20 +64,14 @@ fun SeriesScreen(
     var selectedCat by remember { mutableStateOf("") }
     var series by remember { mutableStateOf<List<SeriesItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // XCIPTV-style prefetch: all series once, category clicks filter locally
+    var allSeries by remember { mutableStateOf<List<SeriesItem>?>(null) }
 
     fun loadCategory(catId: String) {
         selectedCat = catId
-        series = null
         error = null
-        scope.launch {
-            try {
-                series = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client.seriesAll() else client.series(catId)
-                }
-            } catch (e: Exception) {
-                error = e.message ?: "Could not load series."
-            }
-        }
+        // Local filter over prefetched series — instant, zero network (XCIPTV model)
+        series = allSeries?.filter { catId.isEmpty() || it.categoryId == catId }
     }
 
     fun reload() {
@@ -86,6 +80,7 @@ fun SeriesScreen(
         scope.launch {
             try {
                 categories = withContext(Dispatchers.IO) { client.seriesCategories() }
+                allSeries = withContext(Dispatchers.IO) { client.seriesAll() }
                 loadCategory(selectedCat)
             } catch (e: Exception) {
                 error = e.message ?: "Could not load series."

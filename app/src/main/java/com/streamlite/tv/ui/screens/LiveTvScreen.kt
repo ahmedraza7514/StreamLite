@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
 import com.streamlite.tv.data.M3uChannel
@@ -75,23 +76,19 @@ fun LiveTvScreen(
     var selectedCat by remember { mutableStateOf("") } // "" = All
     var channels by remember { mutableStateOf<List<ChannelItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // XCIPTV-style: prefetch ALL streams once, category clicks filter locally (no network)
+    var allStreams by remember { mutableStateOf<List<LiveStream>?>(null) }
     val epgCache = remember { mutableStateMapOf<Int, String>() }
     var m3uAll by remember { mutableStateOf<List<M3uChannel>?>(m3uCache.value) }
 
     fun loadXtreamCategory(catId: String) {
         selectedCat = catId
-        channels = null
         error = null
-        scope.launch {
-            try {
-                val streams = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client!!.liveStreamsAll() else client!!.liveStreams(catId)
-                }
-                channels = streams.map { ChannelItem(it.streamId, it.name, it.logo, it.categoryId, "") }
-            } catch (e: Exception) {
-                error = e.message ?: "Could not load channels."
-            }
-        }
+        // Local filter over prefetched streams — instant, zero network (XCIPTV model)
+        val src = allStreams
+        channels = src
+            ?.filter { catId.isEmpty() || it.categoryId == catId }
+            ?.map { ChannelItem(it.streamId, it.name, it.logo, it.categoryId, "") }
     }
 
     fun applyM3uFilter(group: String) {
@@ -108,7 +105,10 @@ fun LiveTvScreen(
             try {
                 if (client != null) {
                     val cats = withContext(Dispatchers.IO) { client.liveCategories() }
+                    // Single bulk download of ALL live streams (XCIPTV model)
+                    val streams = withContext(Dispatchers.IO) { client.liveStreamsAll() }
                     categories = cats
+                    allStreams = streams
                     loadXtreamCategory(selectedCat)
                 } else {
                     val list = m3uAll ?: withContext(Dispatchers.IO) {

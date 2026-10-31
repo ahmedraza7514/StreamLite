@@ -58,20 +58,14 @@ fun VodScreen(
     var selectedCat by remember { mutableStateOf("") }
     var movies by remember { mutableStateOf<List<VodStream>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // XCIPTV-style prefetch: all VOD once, category clicks filter locally
+    var allMovies by remember { mutableStateOf<List<VodStream>?>(null) }
 
     fun loadCategory(catId: String) {
         selectedCat = catId
-        movies = null
         error = null
-        scope.launch {
-            try {
-                movies = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client.vodStreamsAll() else client.vodStreams(catId)
-                }
-            } catch (e: Exception) {
-                error = e.message ?: "Could not load movies."
-            }
-        }
+        // Local filter over prefetched VOD — instant, zero network (XCIPTV model)
+        movies = allMovies?.filter { catId.isEmpty() || it.categoryId == catId }
     }
 
     fun reload() {
@@ -80,6 +74,7 @@ fun VodScreen(
         scope.launch {
             try {
                 categories = withContext(Dispatchers.IO) { client.vodCategories() }
+                allMovies = withContext(Dispatchers.IO) { client.vodStreamsAll() }
                 loadCategory(selectedCat)
             } catch (e: Exception) {
                 error = e.message ?: "Could not load movies."
