@@ -4,6 +4,7 @@ package com.streamlite.tv.ui
 sealed class Screen {
     data object Login : Screen()
     data object Home : Screen()
+    data object Sync : Screen()
     data object LiveTv : Screen()
     data object Vod : Screen()
     data object Series : Screen()
@@ -18,6 +19,7 @@ sealed class Screen {
         val title: String,
         val playlist: List<PlayerItem> = emptyList(),
         val startIndex: Int = 0,
+        val info: String = "",
     ) : Screen()
 }
 
