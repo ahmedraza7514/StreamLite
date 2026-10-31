@@ -157,16 +157,19 @@ fun LiveTvScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        // Capture once: avoids NPE if state changes between null-check and usage
+        val ch = channels
+        val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
-                error != null -> ErrorBox(error!!) { reload() }
-                channels == null -> LoadingBox()
-                channels!!.isEmpty() -> Box(
+                err != null -> ErrorBox(err) { reload() }
+                ch == null -> LoadingBox()
+                ch.isEmpty() -> Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No channels here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(channels!!, key = { it.id to it.directUrl }) { item ->
+                    items(ch, key = { it.id to it.directUrl }) { item ->
                         ChannelRow(
                             item = item,
                             client = client,

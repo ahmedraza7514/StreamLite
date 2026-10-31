@@ -108,11 +108,13 @@ fun VodScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        val mv = movies
+        val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
-                error != null -> ErrorBox(error!!) { reload() }
-                movies == null -> LoadingBox()
-                movies!!.isEmpty() -> Box(
+                err != null -> ErrorBox(err) { reload() }
+                mv == null -> LoadingBox()
+                mv.isEmpty() -> Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No movies here.", color = SlTextDim, fontSize = 16.sp) }
@@ -121,7 +123,7 @@ fun VodScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    items(movies!!, key = { it.streamId }) { m ->
+                    items(mv, key = { it.streamId }) { m ->
                         Card(
                             onClick = { onPlay(client.vodUrl(m), m.name) },
                             colors = CardDefaults.cardColors(

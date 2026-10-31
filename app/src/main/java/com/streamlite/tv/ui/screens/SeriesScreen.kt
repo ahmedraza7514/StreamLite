@@ -114,11 +114,13 @@ fun SeriesScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        val sr = series
+        val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
-                error != null -> ErrorBox(error!!) { reload() }
-                series == null -> LoadingBox()
-                series!!.isEmpty() -> Box(
+                err != null -> ErrorBox(err) { reload() }
+                sr == null -> LoadingBox()
+                sr.isEmpty() -> Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No series here.", color = SlTextDim, fontSize = 16.sp) }
@@ -127,7 +129,7 @@ fun SeriesScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    items(series!!, key = { it.seriesId }) { s ->
+                    items(sr, key = { it.seriesId }) { s ->
                         Card(
                             onClick = { onOpenDetail(s.seriesId, s.name) },
                             colors = CardDefaults.cardColors(
@@ -194,8 +196,9 @@ fun SeriesDetailScreen(
             .background(SlBackground)
             .padding(32.dp),
     ) {
+        val err = error
         when {
-            error != null -> ErrorBox(error!!) { reload() }
+            err != null -> ErrorBox(err) { reload() }
             i == null -> LoadingBox()
             else -> {
                 Row {
