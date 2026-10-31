@@ -15,7 +15,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.ClickableSurface
+import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -57,7 +57,7 @@ fun ErrorBox(message: String, onRetry: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(24.dp),
         )
-        ClickableSurface(
+        Surface(
             onClick = onRetry,
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = SlSurface,
@@ -76,7 +76,7 @@ fun CategoryChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ClickableSurface(
+    Surface(
         onClick = onClick,
         modifier = modifier,
         colors = ClickableSurfaceDefaults.colors(
@@ -102,7 +102,7 @@ fun MenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ClickableSurface(
+    Surface(
         onClick = onClick,
         modifier = modifier,
         colors = ClickableSurfaceDefaults.colors(
