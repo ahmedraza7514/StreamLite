@@ -33,6 +33,7 @@ import com.streamlite.tv.ui.screens.HomeScreen
 import com.streamlite.tv.ui.screens.LiveTvScreen
 import com.streamlite.tv.ui.screens.LoginScreen
 import com.streamlite.tv.ui.screens.PlayerScreen
+import com.streamlite.tv.ui.screens.SyncScreen
 import com.streamlite.tv.ui.screens.SeriesDetailScreen
 import com.streamlite.tv.ui.screens.SeriesScreen
 import com.streamlite.tv.ui.screens.VodScreen
@@ -114,6 +115,12 @@ private fun AppRoot() {
     fun goHome(s: LoginSession) {
         session = s
         navStack.clear()
+        // XCIPTV-style: bulk sync all content before showing Home
+        navStack.add(Screen.Sync)
+    }
+
+    fun goHomeAfterSync() {
+        navStack.clear()
         navStack.add(Screen.Home)
     }
 
@@ -132,19 +139,21 @@ private fun AppRoot() {
         title: String,
         playlist: List<PlayerItem> = emptyList(),
         startIndex: Int = 0,
+        info: String = "",
     ) {
-        navStack.add(Screen.Player(url, title, playlist, startIndex))
+        navStack.add(Screen.Player(url, title, playlist, startIndex, info))
     }
 
     when (val s = navStack.last()) {
         is Screen.Login -> LoginScreen(sessionManager, ::goHome)
         is Screen.Home -> HomeScreen(session!!, navStack::add, ::logout)
+        is Screen.Sync -> SyncScreen(session!!, ::goHomeAfterSync)
         is Screen.LiveTv -> LiveTvScreen(session!!, m3uCache, ::play)
-        is Screen.Vod -> VodScreen(session!!, { url, title -> play(url, title) })
+        is Screen.Vod -> VodScreen(session!!, { url, title, info -> play(url, title, info = info) })
         is Screen.Series -> SeriesScreen(session!!) { id, title ->
             navStack.add(Screen.SeriesDetail(id, title))
         }
         is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, { url, title -> play(url, title) })
-        is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex)
+        is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex, s.info)
     }
 }
