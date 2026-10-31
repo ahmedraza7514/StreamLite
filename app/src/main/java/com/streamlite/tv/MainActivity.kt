@@ -27,6 +27,7 @@ import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.M3uChannel
 import com.streamlite.tv.data.SessionManager
+import com.streamlite.tv.ui.PlayerItem
 import com.streamlite.tv.ui.Screen
 import com.streamlite.tv.ui.screens.HomeScreen
 import com.streamlite.tv.ui.screens.LiveTvScreen
@@ -126,19 +127,24 @@ private fun AppRoot() {
         }
     }
 
-    fun play(url: String, title: String) {
-        navStack.add(Screen.Player(url, title))
+    fun play(
+        url: String,
+        title: String,
+        playlist: List<PlayerItem> = emptyList(),
+        startIndex: Int = 0,
+    ) {
+        navStack.add(Screen.Player(url, title, playlist, startIndex))
     }
 
     when (val s = navStack.last()) {
         is Screen.Login -> LoginScreen(sessionManager, ::goHome)
         is Screen.Home -> HomeScreen(session!!, navStack::add, ::logout)
         is Screen.LiveTv -> LiveTvScreen(session!!, m3uCache, ::play)
-        is Screen.Vod -> VodScreen(session!!, ::play)
+        is Screen.Vod -> VodScreen(session!!, { url, title -> play(url, title) })
         is Screen.Series -> SeriesScreen(session!!) { id, title ->
             navStack.add(Screen.SeriesDetail(id, title))
         }
-        is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, ::play)
-        is Screen.Player -> PlayerScreen(s.url, s.title)
+        is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, { url, title -> play(url, title) })
+        is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex)
     }
 }
