@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,6 +112,28 @@ fun PlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // Title overlay (top-left), auto-hides with controller
+        var showTitle by remember { mutableStateOf(true) }
+        if (showTitle) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xAA000000),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text(
+                    title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
+
         val currentAspect = zoomModes[zoomIdx].aspect
         val playerModifier = if (currentAspect != null) {
             Modifier
@@ -138,18 +161,19 @@ fun PlayerScreen(
         Box(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
             Card(
                 onClick = { showZoomMenu = true },
-                modifier = Modifier.size(64.dp),
-                shape = CircleShape,
+                modifier = Modifier
+                    .padding(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xAA000000),
                     contentColor = Color.White,
                 ),
             ) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("⛶", fontSize = 22.sp)
+                    Text("ZOOM", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
