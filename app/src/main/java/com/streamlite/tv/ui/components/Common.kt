@@ -1,11 +1,14 @@
 package com.streamlite.tv.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,8 +18,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -57,9 +58,9 @@ fun ErrorBox(message: String, onRetry: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(24.dp),
         )
-        Surface(
+        Card(
             onClick = onRetry,
-            colors = ClickableSurfaceDefaults.colors(
+            colors = CardDefaults.cardColors(
                 containerColor = SlSurface,
                 contentColor = SlText,
             ),
@@ -76,14 +77,14 @@ fun CategoryChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Surface(
+    Card(
         onClick = onClick,
         modifier = modifier,
-        colors = ClickableSurfaceDefaults.colors(
+        colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else SlSurface,
             contentColor = if (selected) Color.Black else SlText,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+        shape = RoundedCornerShape(24.dp),
     ) {
         Text(
             text = text,
@@ -102,15 +103,14 @@ fun MenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    Card(
         onClick = onClick,
         modifier = modifier,
-        colors = ClickableSurfaceDefaults.colors(
+        colors = CardDefaults.cardColors(
             containerColor = SlSurface,
             contentColor = SlText,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        border = ClickableSurfaceDefaults.border(),
+        shape = RoundedCornerShape(20.dp),
     ) {
         Column(modifier = Modifier.padding(28.dp)) {
             Text(title, style = MaterialTheme.typography.headlineMedium, color = SlText)
