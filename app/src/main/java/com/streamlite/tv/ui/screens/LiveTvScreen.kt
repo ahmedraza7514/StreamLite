@@ -32,6 +32,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.streamlite.tv.ui.PlayerItem
+import com.streamlite.tv.data.EpgStore
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
@@ -64,7 +66,7 @@ private data class ChannelItem(
 fun LiveTvScreen(
     session: LoginSession,
     m3uCache: MutableState<List<M3uChannel>?>,
-    onPlay: (url: String, title: String) -> Unit,
+    onPlay: (url: String, title: String, playlist: List<PlayerItem>, startIndex: Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val client = remember(session) {
@@ -78,7 +80,8 @@ fun LiveTvScreen(
     var error by remember { mutableStateOf<String?>(null) }
     // XCIPTV-style: prefetch ALL streams once, category clicks filter locally (no network)
     var allStreams by remember { mutableStateOf<List<LiveStream>?>(null) }
-    val epgCache = remember { mutableStateMapOf<Int, String>() }
+    // App-wide EPG cache (survives navigation) + background prefetch of all programmes
+    val epgCache = EpgStore.cache
     var m3uAll by remember { mutableStateOf<List<M3uChannel>?>(m3uCache.value) }
 
     fun loadXtreamCategory(catId: String) {
@@ -109,6 +112,8 @@ fun LiveTvScreen(
                     val streams = withContext(Dispatchers.IO) { client.liveStreamsAll() }
                     categories = cats
                     allStreams = streams
+                    // Prefetch now/next programme for every channel in background
+                    EpgStore.prefetchAll(client, streams.map { it.streamId })
                     loadXtreamCategory(selectedCat)
                 } else {
                     val list = m3uAll ?: withContext(Dispatchers.IO) {
@@ -176,7 +181,14 @@ fun LiveTvScreen(
                             epgCache = epgCache,
                             onPlay = {
                                 val url = item.directUrl.ifEmpty { client!!.liveHlsUrl(item.id) }
-                                onPlay(url, item.name)
+                                val queue = ch.map { c ->
+                                    PlayerItem(
+                                        c.directUrl.ifEmpty { client!!.liveHlsUrl(c.id) },
+                                        c.name,
+                                    )
+                                }
+                                val idx = ch.indexOf(item).coerceAtLeast(0)
+                                onPlay(url, item.name, queue, idx)
                             },
                         )
                     }
