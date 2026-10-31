@@ -4,6 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
+import com.streamlite.tv.ui.theme.SlAccent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -50,7 +55,7 @@ import androidx.compose.material3.CardDefaults
 @Composable
 fun VodScreen(
     session: LoginSession,
-    onPlay: (url: String, title: String) -> Unit,
+    onPlay: (url: String, title: String, info: String) -> Unit,
 ) {
     val client = remember { XtreamClient(session.server, session.username, session.password) }
     val scope = rememberCoroutineScope()
@@ -58,6 +63,8 @@ fun VodScreen(
     var selectedCat by remember { mutableStateOf("") }
     var movies by remember { mutableStateOf<List<VodStream>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortAsc by remember { mutableStateOf(true) }
     // XCIPTV-style prefetch: all VOD once, category clicks filter locally
     var allMovies by remember { mutableStateOf<List<VodStream>?>(null) }
 
@@ -84,31 +91,64 @@ fun VodScreen(
 
     LaunchedEffect(Unit) { reload() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SlBackground)
-            .padding(32.dp),
-    ) {
-        Text("Movies", style = MaterialTheme.typography.headlineMedium, color = SlText)
-        Spacer(Modifier.height(12.dp))
+    // Category counts for sidebar
+    val catCounts = remember(allMovies, categories) {
+        val map = mutableMapOf<String, Int>()
+        allMovies?.forEach { m -> map[m.categoryId] = (map[m.categoryId] ?: 0) + 1 }
+        map
+    }
 
-        if (categories == null && error == null) {
-            Box(Modifier.height(48.dp)) { LoadingBox() }
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(listOf("all"), key = { it }) {
-                    CategoryChip("All", selectedCat.isEmpty()) { loadCategory("") }
-                }
-                items(categories ?: emptyList(), key = { it.id }) { cat ->
-                    CategoryChip(cat.name, selectedCat == cat.id) { loadCategory(cat.id) }
+    Row(modifier = Modifier.fillMaxSize().background(SlBackground)) {
+        // LEFT SIDEBAR
+        Column(
+            modifier = Modifier.width(280.dp).fillMaxSize()
+                .background(Color(0xFF0F1E2E)).padding(vertical = 24.dp),
+        ) {
+            Text("Movies", style = MaterialTheme.typography.headlineSmall, color = SlText,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(Modifier.height(16.dp))
+            if (categories == null && error == null) {
+                Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    item(key = "all") {
+                        SidebarRow("All Movies", allMovies?.size ?: 0, selectedCat.isEmpty()) { loadCategory("") }
+                    }
+                    items(categories ?: emptyList(), key = { it.id }) { cat ->
+                        SidebarRow(cat.name, catCounts[cat.id] ?: 0, selectedCat == cat.id) { loadCategory(cat.id) }
+                    }
                 }
             }
         }
-
+        // RIGHT: content
+        Column(modifier = Modifier.weight(1f).fillMaxSize().padding(24.dp)) {
+        // Search + Sort
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(value = searchQuery, onValueChange = { searchQuery = it },
+                modifier = Modifier.weight(1f)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                textStyle = TextStyle(color = SlText, fontSize = 15.sp), singleLine = true,
+                decorationBox = { inner -> Box {
+                    if (searchQuery.isEmpty()) Text("Search movies...", color = SlTextDim, fontSize = 14.sp)
+                    inner() } },
+            )
+            Card(onClick = { sortAsc = !sortAsc }, shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1E2E), contentColor = SlText)) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(if (sortAsc) "A-Z ↓" else "Z-A ↑", fontSize = 14.sp) }
+            }
+        }
         Spacer(Modifier.height(12.dp))
 
-        val mv = movies
+        val mv = movies?.let { list ->
+            var result = if (searchQuery.isBlank()) list
+                else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            result = if (sortAsc) result.sortedBy { it.name.lowercase() }
+                else result.sortedByDescending { it.name.lowercase() }
+            result
+        }
         val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -125,7 +165,12 @@ fun VodScreen(
                 ) {
                     items(mv, key = { it.streamId }) { m ->
                         Card(
-                            onClick = { onPlay(client.vodUrl(m), m.name) },
+                            onClick = {
+                                val info = buildString {
+                                    if (m.rating.isNotEmpty()) append("RATING: ${m.rating}")
+                                }
+                                onPlay(client.vodUrl(m), m.name, info)
+                            },
                             colors = CardDefaults.cardColors(
                                 containerColor = Color.Transparent,
                                 contentColor = SlText,
@@ -150,6 +195,29 @@ fun VodScreen(
                     }
                 }
             }
+        }
+    }
+    } // Row
+}
+
+@Composable
+private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) SlAccent else Color.Transparent,
+            contentColor = if (selected) Color.Black else SlText,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(name, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Text("($count)", fontSize = 13.sp, color = if (selected) Color.Black else SlTextDim)
         }
     }
 }
