@@ -73,8 +73,8 @@ fun ErrorBox(message: String, onRetry: () -> Unit) {
 fun CategoryChip(
     text: String,
     selected: Boolean,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
