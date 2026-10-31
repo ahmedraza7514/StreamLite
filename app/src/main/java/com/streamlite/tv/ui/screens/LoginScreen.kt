@@ -17,6 +17,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +40,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
@@ -164,15 +164,15 @@ fun LoginScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        Surface(
+        Card(
             onClick = { doLogin() },
             enabled = !loading,
             modifier = Modifier.fillMaxWidth(),
-            colors = ClickableSurfaceDefaults.colors(
+            colors = CardDefaults.cardColors(
                 containerColor = SlAccent,
                 contentColor = Color.Black,
             ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+            shape = RoundedCornerShape(16.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -200,13 +200,13 @@ fun LoginScreen(
 
 @Composable
 private fun LoginTab(text: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
+    Card(
         onClick = onClick,
-        colors = ClickableSurfaceDefaults.colors(
+        colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else SlSurface,
             contentColor = if (selected) Color.Black else SlText,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        shape = RoundedCornerShape(24.dp),
     ) {
         Text(text, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 26.dp, vertical = 12.dp))
     }

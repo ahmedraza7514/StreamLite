@@ -1,6 +1,7 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,8 +31,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.Episode
@@ -51,6 +50,8 @@ import com.streamlite.tv.ui.theme.SlTextDim
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 
 @Composable
 fun SeriesScreen(
@@ -132,14 +133,12 @@ fun SeriesScreen(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     items(series!!, key = { it.seriesId }) { s ->
-                        Surface(
+                        Card(
                             onClick = { onOpenDetail(s.seriesId, s.name) },
-                            colors = ClickableSurfaceDefaults.colors(
+                            colors = CardDefaults.cardColors(
                                 containerColor = Color.Transparent,
                                 contentColor = SlText,
                             ),
-                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-                            border = ClickableSurfaceDefaults.border(),
                         ) {
                             Column {
                                 PosterImage(
@@ -245,15 +244,13 @@ fun SeriesDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(episodes, key = { it.id }) { ep ->
-                        Surface(
+                        Card(
                             onClick = { onPlay(client.episodeUrl(ep), "${title} — ${ep.title}") },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ClickableSurfaceDefaults.colors(
+                            colors = CardDefaults.cardColors(
                                 containerColor = Color.Transparent,
                                 contentColor = SlText,
                             ),
-                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.015f),
-                            border = ClickableSurfaceDefaults.border(),
                         ) {
                             Row(
                                 modifier = Modifier

@@ -1,6 +1,7 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,8 +28,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.tv.material3.Surface
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
@@ -45,6 +44,8 @@ import com.streamlite.tv.ui.theme.SlTextDim
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 
 @Composable
 fun VodScreen(
@@ -126,14 +127,12 @@ fun VodScreen(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     items(movies!!, key = { it.streamId }) { m ->
-                        Surface(
+                        Card(
                             onClick = { onPlay(client.vodUrl(m), m.name) },
-                            colors = ClickableSurfaceDefaults.colors(
+                            colors = CardDefaults.cardColors(
                                 containerColor = Color.Transparent,
                                 contentColor = SlText,
                             ),
-                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-                            border = ClickableSurfaceDefaults.border(),
                         ) {
                             Column {
                                 PosterImage(
