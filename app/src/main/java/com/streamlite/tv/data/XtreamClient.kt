@@ -32,7 +32,8 @@ class XtreamClient(server: String, username: String, password: String) {
         "$base/player_api.php?username=${enc(user)}&password=${enc(pass)}&action=$action$extra"
 
     private fun get(url: String): String {
-        val req = Request.Builder().url(url).header("User-Agent", "StreamLite/1.0").build()
+        // Use a widely-accepted UA: some panels block unknown clients with custom codes (e.g. 512)
+        val req = Request.Builder().url(url).header("User-Agent", "VLC/3.0.18 LibVLC/3.0.18").build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("Server replied HTTP ${resp.code}")
             return resp.body?.string() ?: throw IOException("Empty response from server")
