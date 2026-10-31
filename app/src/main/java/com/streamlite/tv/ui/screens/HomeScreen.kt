@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -46,7 +45,7 @@ fun HomeScreen(
         )
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            item {
+            items(1) {
                 MenuCard(
                     title = "Live TV",
                     subtitle = "Watch live channels",
@@ -55,7 +54,7 @@ fun HomeScreen(
                 )
             }
             if (session.type == LoginType.XTREAM) {
-                item {
+                items(1) {
                     MenuCard(
                         title = "Movies",
                         subtitle = "Browse the movie library",
@@ -63,7 +62,7 @@ fun HomeScreen(
                         modifier = Modifier.width(330.dp).height(180.dp),
                     )
                 }
-                item {
+                items(1) {
                     MenuCard(
                         title = "Series",
                         subtitle = "Browse TV series",
@@ -72,7 +71,7 @@ fun HomeScreen(
                     )
                 }
             }
-            item {
+            items(1) {
                 MenuCard(
                     title = "Log out",
                     subtitle = "Switch account",

@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -142,7 +141,7 @@ fun LiveTvScreen(
             Box(Modifier.height(48.dp)) { LoadingBox() }
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                item(key = "all") {
+                items(listOf("all"), key = { it }) {
                     CategoryChip("All", selectedCat.isEmpty()) {
                         if (client != null) loadXtreamCategory("") else applyM3uFilter("")
                     }

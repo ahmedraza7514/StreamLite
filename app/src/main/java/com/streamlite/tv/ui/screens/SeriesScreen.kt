@@ -29,7 +29,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.Surface
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -108,7 +107,7 @@ fun SeriesScreen(
             Box(Modifier.height(48.dp)) { LoadingBox() }
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                item(key = "all") {
+                items(listOf("all"), key = { it }) {
                     CategoryChip("All", selectedCat.isEmpty()) { loadCategory("") }
                 }
                 items(categories ?: emptyList(), key = { it.id }) { cat ->
