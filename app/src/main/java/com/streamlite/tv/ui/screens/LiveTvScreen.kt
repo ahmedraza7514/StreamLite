@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
@@ -326,15 +329,16 @@ fun LiveTvScreen(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No channels here.", color = SlTextDim, fontSize = 16.sp) }
-                else -> LazyColumn(
-                    state = ScrollStateStore.liveList,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = ScrollStateStore.liveGrid,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(8.dp),
                 ) {
                     items(ch, key = { it.id to it.directUrl }) { item ->
-                        ChannelRow(
+                        ChannelGridCard(
                             item = item,
-                            client = client,
-                            epgCache = epgCache,
                             onPlay = {
                                 val url = item.directUrl.ifEmpty { client!!.liveHlsUrl(item.id) }
                                 val queue = ch.map { c ->
@@ -452,6 +456,43 @@ private fun ChannelRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ChannelGridCard(
+    item: ChannelItem,
+    onPlay: () -> Unit,
+) {
+    Card(
+        onClick = onPlay,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1A1A1A),
+            contentColor = Color.White,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ChannelLogo(
+                item.logo,
+                Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                item.name,
+                fontSize = 13.sp,
+                color = Color.White,
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
