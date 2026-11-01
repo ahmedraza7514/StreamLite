@@ -18,15 +18,17 @@ object DataRepository {
 
     var isSynced = false
 
-    suspend fun syncAll(client: XtreamClient, onProgress: (String) -> Unit) {
+    suspend fun syncAll(
+        client: XtreamClient,
+        onProgress: (String) -> Unit,
+        onEpgProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ) {
         // LIVE TV
         onProgress("LIVE TV")
         val lc = withContext(Dispatchers.IO) { client.liveCategories() }
         val ls = withContext(Dispatchers.IO) { client.liveStreamsAll() }
         liveCategories = lc
         liveStreams = ls
-        // Prefetch EPG in background
-        EpgStore.prefetchAll(client, ls.map { it.streamId })
 
         // VOD
         onProgress("VOD")
@@ -38,9 +40,12 @@ object DataRepository {
         seriesCategories = withContext(Dispatchers.IO) { client.seriesCategories() }
         seriesList = withContext(Dispatchers.IO) { client.seriesAll() }
 
-        // GUIDE (EPG is prefetched in background)
+        // GUIDE — EPG prefetched HERE with parallel requests and real progress,
+        // so "Loading programme..." never appears after sync completes.
         onProgress("GUIDE")
-        // EPG prefetch runs in background via EpgStore
+        EpgStore.prefetchAllAndWait(client, ls.map { it.streamId }) { done, total ->
+            onEpgProgress(done, total)
+        }
 
         isSynced = true
         onProgress("DONE")
