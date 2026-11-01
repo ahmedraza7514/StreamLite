@@ -34,6 +34,7 @@ object RecentViewsStore {
  */
 object ScrollStateStore {
     val liveList = LazyListState()
+    val liveGrid = LazyGridState()
     val vodGrid = LazyGridState()
     val seriesGrid = LazyGridState()
 }
