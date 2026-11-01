@@ -56,6 +56,9 @@ fun SyncScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var epgDone by remember { mutableStateOf(0) }
     var epgTotal by remember { mutableStateOf(0) }
+    var liveCount by remember { mutableStateOf(0) }
+    var vodCount by remember { mutableStateOf(0) }
+    var seriesCount by remember { mutableStateOf(0) }
 
     val steps = listOf("LIVE TV", "VOD", "SERIES", "GUIDE")
 
@@ -65,6 +68,9 @@ fun SyncScreen(
         currentStep = "Waiting..."
         epgDone = 0
         epgTotal = 0
+        liveCount = 0
+        vodCount = 0
+        seriesCount = 0
         scope.launch {
             try {
                 if (session.type == LoginType.XTREAM) {
@@ -74,12 +80,22 @@ fun SyncScreen(
                         onProgress = { step ->
                             if (step == "DONE") {
                                 completedSteps = steps.toSet()
+                                // Capture final counts from DataRepository
+                                liveCount = DataRepository.liveStreams?.size ?: 0
+                                vodCount = DataRepository.vodTotalCount
+                                seriesCount = DataRepository.seriesTotalCount
                             } else {
                                 currentStep = step
                                 // Mark previous steps as done
                                 val idx = steps.indexOf(step)
                                 if (idx > 0) {
                                     completedSteps = steps.take(idx).toSet()
+                                }
+                                // Update counts as each step finishes
+                                when (step) {
+                                    "VOD" -> liveCount = DataRepository.liveStreams?.size ?: 0
+                                    "SERIES" -> vodCount = DataRepository.vodTotalCount
+                                    "GUIDE" -> seriesCount = DataRepository.seriesTotalCount
                                 }
                             }
                         },
@@ -148,7 +164,16 @@ fun SyncScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                         when {
-                            isDone -> Text("✓ Done", fontSize = 14.sp, color = Color(0xFF4CAF50))
+                            isDone -> {
+                                // Show "✓ Done (count)" — checkmark kept, count in parentheses
+                                val countText = when (step) {
+                                    "LIVE TV" -> "✓ Done ($liveCount)"
+                                    "VOD" -> "✓ Done ($vodCount)"
+                                    "SERIES" -> "✓ Done ($seriesCount)"
+                                    else -> "✓ Done"
+                                }
+                                Text(countText, fontSize = 14.sp, color = Color(0xFF4CAF50))
+                            }
                             isActive -> {
                                 if (step == "GUIDE" && epgTotal > 0) {
                                     // Real EPG progress: "1234 / 5000"
