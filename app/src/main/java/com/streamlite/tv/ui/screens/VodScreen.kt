@@ -70,23 +70,29 @@ fun VodScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var sortAsc by remember { mutableStateOf(true) }
-    // XCIPTV-style prefetch: all VOD once, category clicks filter locally
-    var allMovies by remember { mutableStateOf<List<VodStream>?>(null) }
 
     fun loadCategory(catId: String) {
         selectedCat = catId
         error = null
-        // Local filter over prefetched VOD — instant, zero network (XCIPTV model)
-        movies = allMovies?.filter { catId.isEmpty() || it.categoryId == catId }
+        movies = null // show loading
+        scope.launch {
+            try {
+                // Per-category load — avoids OOM from bulk-loading 10k+ movies on TV boxes
+                movies = withContext(Dispatchers.IO) {
+                    if (catId.isEmpty()) client.vodStreamsAll()
+                    else client.vodStreams(catId)
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Could not load movies."
+            }
+        }
     }
 
     fun reload() {
         error = null
-        movies = null
         scope.launch {
             try {
                 categories = withContext(Dispatchers.IO) { client.vodCategories() }
-                allMovies = withContext(Dispatchers.IO) { client.vodStreamsAll() }
                 loadCategory(selectedCat)
             } catch (e: Exception) {
                 error = e.message ?: "Could not load movies."
@@ -96,12 +102,7 @@ fun VodScreen(
 
     LaunchedEffect(Unit) { reload() }
 
-    // Category counts for sidebar
-    val catCounts = remember(allMovies, categories) {
-        val map = mutableMapOf<String, Int>()
-        allMovies?.forEach { m -> map[m.categoryId] = (map[m.categoryId] ?: 0) + 1 }
-        map
-    }
+    // Category counts hidden (would require bulk load) — names only for TV-box safety
 
     Row(modifier = Modifier.fillMaxSize().background(SlBackground)) {
         // LEFT SIDEBAR
@@ -278,7 +279,7 @@ private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(name, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Text("($count)", fontSize = 13.sp, color = if (selected) Color.Black else SlTextDim)
+            // Count hidden — per-category loading doesn't have totals (TV-box memory safety)
         }
     }
 }
