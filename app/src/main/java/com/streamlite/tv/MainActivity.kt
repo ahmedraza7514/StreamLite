@@ -141,6 +141,13 @@ private fun AppRoot() {
         startIndex: Int = 0,
         info: String = "",
     ) {
+        // Record in recent views (kind guessed from info/url)
+        val kind = when {
+            info.contains("★") || url.contains("/movie/") -> "vod"
+            title.contains("—") -> "episode"
+            else -> "live"
+        }
+        RecentViewsStore.add(RecentItem(url, title, kind, info))
         navStack.add(Screen.Player(url, title, playlist, startIndex, info))
     }
 
@@ -150,9 +157,9 @@ private fun AppRoot() {
         is Screen.Sync -> SyncScreen(session!!, ::goHomeAfterSync)
         is Screen.LiveTv -> LiveTvScreen(session!!, m3uCache, ::play)
         is Screen.Vod -> VodScreen(session!!, { url, title, info -> play(url, title, info = info) })
-        is Screen.Series -> SeriesScreen(session!!) { id, title ->
+        is Screen.Series -> SeriesScreen(session!!, { id, title ->
             navStack.add(Screen.SeriesDetail(id, title))
-        }
+        }, { url, title -> play(url, title) })
         is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, { url, title -> play(url, title) })
         is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex, s.info)
     }
