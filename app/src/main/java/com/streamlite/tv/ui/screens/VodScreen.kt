@@ -167,10 +167,29 @@ fun VodScreen(
                     items(mv, key = { it.streamId }) { m ->
                         Card(
                             onClick = {
-                                val info = buildString {
-                                    if (m.rating.isNotEmpty()) append("RATING: ${m.rating}")
+                                // Fetch full movie details (genre/date/plot) then play
+                                scope.launch {
+                                    val fullInfo = try {
+                                        val vi = withContext(Dispatchers.IO) { client.vodInfo(m.streamId) }
+                                        buildString {
+                                            if (vi.rating.isNotEmpty()) append("★ ${vi.rating}  ")
+                                            if (vi.genre.isNotEmpty()) append("${vi.genre}  ")
+                                            if (vi.releaseDate.isNotEmpty()) append("${vi.releaseDate}")
+                                            val head = toString().trim()
+                                            clear()
+                                            if (head.isNotEmpty()) append(head)
+                                            if (vi.plot.isNotEmpty()) {
+                                                if (isNotEmpty()) append("\n")
+                                                append(vi.plot.take(180))
+                                            }
+                                        }.ifEmpty {
+                                            if (m.rating.isNotEmpty()) "★ ${m.rating}" else ""
+                                        }
+                                    } catch (e: Exception) {
+                                        if (m.rating.isNotEmpty()) "★ ${m.rating}" else ""
+                                    }
+                                    onPlay(client.vodUrl(m), m.name, fullInfo)
                                 }
-                                onPlay(client.vodUrl(m), m.name, info)
                             },
                             colors = CardDefaults.cardColors(
                                 containerColor = Color.Transparent,
