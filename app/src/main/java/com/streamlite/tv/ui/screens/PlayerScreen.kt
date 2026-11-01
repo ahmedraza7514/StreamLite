@@ -201,7 +201,6 @@ fun PlayerScreen(
                 PlayerView(ctx).apply {
                     this.player = player
                     // Use TextureView so Compose overlays (buttons/title) draw on top of video
-                    setVideoSurfaceType(PlayerView.VIDEO_SURFACE_TYPE_TEXTURE_VIEW)
                     useController = true
                     controllerShowTimeoutMs = 3000
                     setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
