@@ -108,9 +108,9 @@ fun VodScreen(
         // LEFT SIDEBAR
         Column(
             modifier = Modifier.width(280.dp).fillMaxSize()
-                .background(Color(0xFF0F1E2E)).padding(vertical = 24.dp),
+                .background(Color.Black).padding(vertical = 24.dp),
         ) {
-            Text("Movies", style = MaterialTheme.typography.headlineSmall, color = SlText,
+            Text("Movies", style = MaterialTheme.typography.headlineSmall, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(16.dp))
             if (categories == null && error == null) {
@@ -133,11 +133,11 @@ fun VodScreen(
             verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(value = searchQuery, onValueChange = { searchQuery = it },
                 modifier = Modifier.weight(1f)
-                    .background(Color(0xFF0F1E2E), RoundedCornerShape(12.dp))
+                    .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                textStyle = TextStyle(color = SlText, fontSize = 15.sp), singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp), singleLine = true,
                 decorationBox = { inner -> Box {
-                    if (searchQuery.isEmpty()) Text("Search movies...", color = SlTextDim, fontSize = 14.sp)
+                    if (searchQuery.isEmpty()) Text("Search movies...", color = Color(0xFF999999), fontSize = 14.sp)
                     inner() } },
             )
             Card(onClick = { sortAsc = !sortAsc }, shape = RoundedCornerShape(12.dp),
@@ -247,6 +247,7 @@ fun VodScreen(
                                     m.name,
                                     fontSize = 14.sp,
                                     maxLines = 2,
+                                    color = Color.White,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                                 if (m.rating.isNotEmpty()) {
@@ -270,7 +271,7 @@ private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () 
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else Color.Transparent,
-            contentColor = if (selected) Color.Black else SlText,
+            contentColor = if (selected) Color.Black else Color.White,
         ),
     ) {
         Row(
@@ -278,7 +279,7 @@ private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(name, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Text(name, fontSize = 15.sp, color = Color.White, modifier = Modifier.weight(1f))
             // Count hidden — per-category loading doesn't have totals (TV-box memory safety)
         }
     }
