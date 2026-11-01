@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
 import com.streamlite.tv.ui.theme.SlAccent
@@ -37,6 +39,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
+import com.streamlite.tv.data.RecentViewsStore
+import com.streamlite.tv.data.ScrollStateStore
 import com.streamlite.tv.data.VodStream
 import com.streamlite.tv.data.XtreamCategory
 import com.streamlite.tv.data.XtreamClient
@@ -143,6 +147,42 @@ fun VodScreen(
         }
         Spacer(Modifier.height(12.dp))
 
+        // Recent Views
+        val recent = RecentViewsStore.items.filter { it.kind == "vod" }
+        if (recent.isNotEmpty()) {
+            Text(
+                "Recent Views",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                items(recent, key = { it.url }) { r ->
+                    Card(
+                        onClick = { onPlay(r.url, r.title, r.info) },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1E3A5F),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(
+                            r.title,
+                            fontSize = 13.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                .widthIn(max = 200.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         val mv = movies?.let { list ->
             var result = if (searchQuery.isBlank()) list
                 else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -160,6 +200,7 @@ fun VodScreen(
                     contentAlignment = Alignment.Center,
                 ) { Text("No movies here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyVerticalGrid(
+                    state = ScrollStateStore.vodGrid,
                     columns = GridCells.Fixed(5),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
