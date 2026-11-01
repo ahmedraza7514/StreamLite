@@ -160,8 +160,8 @@ fun PlayerScreen(
         if (showTitle && controllerVisible) {
             Card(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 64.dp)
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = 16.dp)
                     .zIndex(1f),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
@@ -221,7 +221,7 @@ fun PlayerScreen(
         // Positioned above the controller, auto-hides with it
         if (controllerVisible) {
         Row(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).zIndex(1f),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp).zIndex(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
