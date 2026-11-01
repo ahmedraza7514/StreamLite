@@ -280,7 +280,6 @@ private fun QuadPlayer(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = player
-                    setVideoSurfaceType(PlayerView.VIDEO_SURFACE_TYPE_TEXTURE_VIEW)
                     useController = false
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
