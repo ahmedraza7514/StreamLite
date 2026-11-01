@@ -1,6 +1,10 @@
 package com.streamlite.tv.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
@@ -15,6 +19,10 @@ object DataRepository {
     var vodStreams: List<VodStream>? = null
     var seriesCategories: List<XtreamCategory>? = null
     var seriesList: List<SeriesItem>? = null
+
+    // Total counts (for sync screen display) — counted per-category to avoid OOM
+    var vodTotalCount: Int = 0
+    var seriesTotalCount: Int = 0
 
     var isSynced = false
 
@@ -31,12 +39,36 @@ object DataRepository {
         liveStreams = ls
 
         // VOD — categories only (streams load per-category on demand to avoid OOM on TV boxes)
+        // Plus parallel per-category COUNT so sync screen can show total videos
         onProgress("VOD")
-        vodCategories = withContext(Dispatchers.IO) { client.vodCategories() }
+        val vc = withContext(Dispatchers.IO) { client.vodCategories() }
+        vodCategories = vc
+        vodTotalCount = withContext(Dispatchers.IO) {
+            val sem = Semaphore(12)
+            vc.map { cat ->
+                async {
+                    sem.withPermit {
+                        try { client.vodStreams(cat.id).size } catch (e: Exception) { 0 }
+                    }
+                }
+            }.awaitAll().sum()
+        }
 
         // SERIES — categories only (series load per-category on demand to avoid OOM on TV boxes)
+        // Plus parallel per-category COUNT so sync screen can show total series
         onProgress("SERIES")
-        seriesCategories = withContext(Dispatchers.IO) { client.seriesCategories() }
+        val sc = withContext(Dispatchers.IO) { client.seriesCategories() }
+        seriesCategories = sc
+        seriesTotalCount = withContext(Dispatchers.IO) {
+            val sem = Semaphore(12)
+            sc.map { cat ->
+                async {
+                    sem.withPermit {
+                        try { client.series(cat.id).size } catch (e: Exception) { 0 }
+                    }
+                }
+            }.awaitAll().sum()
+        }
 
         // GUIDE — EPG prefetched HERE with parallel requests and real progress,
         // so "Loading programme..." never appears after sync completes.
