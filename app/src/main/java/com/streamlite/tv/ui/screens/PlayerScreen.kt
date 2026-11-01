@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -139,8 +140,10 @@ fun PlayerScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // Title overlay (bottom-left, above controller), white text
         // Updates when playlist advances (Next/Prev)
+        // Auto-hides with the ExoPlayer controller
         var showTitle by remember { mutableStateOf(true) }
         var currentTitle by remember { mutableStateOf(title) }
+        var controllerVisible by remember { mutableStateOf(true) }
         // Listen for playlist index changes to update title
         DisposableEffect(player) {
             val listener = object : Player.Listener {
@@ -154,7 +157,7 @@ fun PlayerScreen(
             player.addListener(listener)
             onDispose { player.removeListener(listener) }
         }
-        if (showTitle) {
+        if (showTitle && controllerVisible) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -197,21 +200,31 @@ fun PlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = player
+                    // Use TextureView so Compose overlays (buttons/title) draw on top of video
+                    setVideoSurfaceType(PlayerView.VIDEO_SURFACE_TYPE_TEXTURE_VIEW)
                     useController = true
                     controllerShowTimeoutMs = 3000
                     setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
                     resizeMode = zoomModes[zoomIdx].resizeMode
+                    // Track controller visibility to auto-hide our overlays
+                    setControllerVisibilityListener(
+                        PlayerView.ControllerVisibilityListener { visibility ->
+                            controllerVisible = visibility == android.view.View.VISIBLE
+                        }
+                    )
                     playerViewRef = this
                 }
             },
             modifier = playerModifier,
         )
 
-        // Bottom-right controls: ZOOM + VOL + AUDIO + SUBS (near settings gear)
-        Column(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 64.dp).zIndex(1f),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        // Bottom controls: ZOOM + VOL + AUDIO + SUBS in a horizontal row
+        // Positioned above the controller, auto-hides with it
+        if (controllerVisible) {
+        Row(
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).zIndex(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // ZOOM button -> 5-option menu
             Box {
@@ -389,6 +402,7 @@ fun PlayerScreen(
             )
         }
     }
+    } // if (controllerVisible)
 }
 
 /** Generic audio/subtitle track picker dialog. */
