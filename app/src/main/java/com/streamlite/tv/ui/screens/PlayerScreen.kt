@@ -216,7 +216,7 @@ fun PlayerScreen(
                 DropdownMenu(
                     expanded = showZoomMenu,
                     onDismissRequest = { showZoomMenu = false },
-                    containerColor = Color.Black,
+                    modifier = Modifier.background(Color.Black),
                 ) {
                     zoomModes.forEachIndexed { idx, mode ->
                         DropdownMenuItem(
