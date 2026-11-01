@@ -70,12 +70,9 @@ object DataRepository {
             }.awaitAll().sum()
         }
 
-        // GUIDE — EPG prefetched HERE with parallel requests and real progress,
-        // so "Loading programme..." never appears after sync completes.
+        // GUIDE — EPG is now OPTIONAL (user taps the GUIDE box to load it).
+        // Skipped during auto-sync so the app opens fast every time.
         onProgress("GUIDE")
-        EpgStore.prefetchAllAndWait(client, ls.map { it.streamId }) { done, total ->
-            onEpgProgress(done, total)
-        }
 
         isSynced = true
         onProgress("DONE")
