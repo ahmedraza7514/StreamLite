@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -40,6 +42,8 @@ import com.streamlite.tv.data.EpgStore
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
+import com.streamlite.tv.data.RecentViewsStore
+import com.streamlite.tv.data.ScrollStateStore
 import com.streamlite.tv.data.M3uChannel
 import com.streamlite.tv.data.M3uParser
 import com.streamlite.tv.data.XtreamCategory
@@ -252,6 +256,57 @@ fun LiveTvScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
+
+        // Recent Views — quick access to recently watched
+        val recent = RecentViewsStore.items
+        if (recent.isNotEmpty()) {
+            Text(
+                "Recent Views",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                items(recent, key = { it.url }) { r ->
+                    Card(
+                        onClick = {
+                            // Replay: rebuild minimal queue for live, direct for others
+                            if (r.kind == "live" && ch != null) {
+                                val queue = ch.map { c ->
+                                    PlayerItem(
+                                        c.directUrl.ifEmpty { client!!.liveHlsUrl(c.id) },
+                                        c.name,
+                                    )
+                                }
+                                val idx = queue.indexOfFirst { it.url == r.url }.coerceAtLeast(0)
+                                onPlay(r.url, r.title, queue, idx)
+                            } else {
+                                onPlay(r.url, r.title, listOf(PlayerItem(r.url, r.title)), 0)
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1E3A5F),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(
+                            r.title,
+                            fontSize = 13.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                .widthIn(max = 200.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         // Capture once: avoids NPE if state changes between null-check and usage
         // Apply search filter + sort
         val ch = channels?.let { list ->
@@ -270,7 +325,10 @@ fun LiveTvScreen(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) { Text("No channels here.", color = SlTextDim, fontSize = 16.sp) }
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                else -> LazyColumn(
+                    state = ScrollStateStore.liveList,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     items(ch, key = { it.id to it.directUrl }) { item ->
                         ChannelRow(
                             item = item,
