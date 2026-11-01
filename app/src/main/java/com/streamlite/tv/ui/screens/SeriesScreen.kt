@@ -1,6 +1,7 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
@@ -153,7 +154,7 @@ fun SeriesScreen(
         val recent = RecentViewsStore.items.filter { it.kind == "episode" }
         if (recent.isNotEmpty()) {
             Text(
-                "Recent Views",
+                "Recent Played",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -215,21 +216,40 @@ fun SeriesScreen(
                                 contentColor = SlText,
                             ),
                         ) {
-                            Column {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
+                            ) {
                                 PosterImage(
                                     s.cover,
-                                    Modifier.fillMaxWidth().aspectRatio(2f / 3f),
+                                    Modifier.fillMaxSize(),
                                 )
-                                Text(
-                                    s.name,
-                                    fontSize = 14.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
-                                    modifier = Modifier.padding(top = 6.dp),
-                                )
-                                if (s.rating.isNotEmpty()) {
-                                    Text("★ ${s.rating}", fontSize = 12.sp, color = Color(0xFFCCCCCC))
+                                // Title overlay at bottom (XCIPTV style)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color(0xCC000000),
+                                                ),
+                                            ),
+                                        )
+                                        .padding(8.dp),
+                                ) {
+                                    Column {
+                                        Text(
+                                            s.name,
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 2,
+                                        )
+                                        if (s.rating.isNotEmpty()) {
+                                            Text("★ ${s.rating}", fontSize = 12.sp, color = Color.White)
+                                        }
+                                    }
                                 }
                             }
                         }
