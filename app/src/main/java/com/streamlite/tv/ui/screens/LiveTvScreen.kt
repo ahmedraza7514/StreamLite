@@ -171,13 +171,13 @@ fun LiveTvScreen(
             modifier = Modifier
                 .width(280.dp)
                 .fillMaxSize()
-                .background(Color(0xFF0F1E2E))
+                .background(Color.Black)
                 .padding(vertical = 24.dp),
         ) {
             Text(
                 "Live TV",
                 style = MaterialTheme.typography.headlineSmall,
-                color = SlText,
+                color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             Spacer(Modifier.height(16.dp))
@@ -383,12 +383,13 @@ private fun SidebarCategoryRow(
             Text(
                 name,
                 fontSize = 15.sp,
+                color = Color.White,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 "($count)",
                 fontSize = 13.sp,
-                color = if (selected) Color.Black else SlTextDim,
+                color = if (selected) Color.Black else Color(0xFFCCCCCC),
             )
         }
     }
