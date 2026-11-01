@@ -21,6 +21,15 @@ data class VodStream(
     val rating: String,
 )
 
+data class VodInfo(
+    val rating: String,
+    val genre: String,
+    val releaseDate: String,
+    val plot: String,
+    val cast: String,
+    val director: String,
+)
+
 data class SeriesItem(
     val seriesId: Int,
     val name: String,
