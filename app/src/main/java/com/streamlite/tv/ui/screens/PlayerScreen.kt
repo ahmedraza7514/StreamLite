@@ -136,13 +136,13 @@ fun PlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Title overlay (top-left), auto-hides with controller
+        // Title overlay (bottom-left, above controller), white text
         var showTitle by remember { mutableStateOf(true) }
         if (showTitle) {
             Card(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp),
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 64.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xAA000000),
@@ -153,13 +153,14 @@ fun PlayerScreen(
                     title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
                 if (info.isNotEmpty()) {
                     Text(
                         info,
                         fontSize = 13.sp,
-                        color = Color(0xFFAAAAAA),
+                        color = Color.White,
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp),
                     )
                 }
@@ -189,9 +190,9 @@ fun PlayerScreen(
             modifier = playerModifier,
         )
 
-        // Top-right controls: ZOOM + Volume/Brightness
+        // Bottom-right controls: ZOOM + VOL + AUDIO + SUBS (near settings gear)
         Column(
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 64.dp),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -215,6 +216,7 @@ fun PlayerScreen(
                 DropdownMenu(
                     expanded = showZoomMenu,
                     onDismissRequest = { showZoomMenu = false },
+                    containerColor = Color.Black,
                 ) {
                     zoomModes.forEachIndexed { idx, mode ->
                         DropdownMenuItem(
