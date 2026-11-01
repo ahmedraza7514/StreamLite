@@ -126,7 +126,7 @@ fun ChannelLogo(url: String, modifier: Modifier = Modifier) {
             model = url,
             contentDescription = null,
             modifier = modifier,
-            contentScale = ContentScale.Fit,
+            contentScale = ContentScale.Crop,
         )
     } else {
         Box(
