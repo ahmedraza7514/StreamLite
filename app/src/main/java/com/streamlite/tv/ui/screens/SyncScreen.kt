@@ -54,6 +54,8 @@ fun SyncScreen(
     var currentStep by remember { mutableStateOf("Waiting...") }
     var completedSteps by remember { mutableStateOf(setOf<String>()) }
     var error by remember { mutableStateOf<String?>(null) }
+    var epgDone by remember { mutableStateOf(0) }
+    var epgTotal by remember { mutableStateOf(0) }
 
     val steps = listOf("LIVE TV", "VOD", "SERIES", "GUIDE")
 
@@ -61,22 +63,31 @@ fun SyncScreen(
         error = null
         completedSteps = emptySet()
         currentStep = "Waiting..."
+        epgDone = 0
+        epgTotal = 0
         scope.launch {
             try {
                 if (session.type == LoginType.XTREAM) {
                     val client = XtreamClient(session.server, session.username, session.password)
-                    DataRepository.syncAll(client) { step ->
-                        if (step == "DONE") {
-                            completedSteps = steps.toSet()
-                        } else {
-                            currentStep = step
-                            // Mark previous steps as done
-                            val idx = steps.indexOf(step)
-                            if (idx > 0) {
-                                completedSteps = steps.take(idx).toSet()
+                    DataRepository.syncAll(
+                        client,
+                        onProgress = { step ->
+                            if (step == "DONE") {
+                                completedSteps = steps.toSet()
+                            } else {
+                                currentStep = step
+                                // Mark previous steps as done
+                                val idx = steps.indexOf(step)
+                                if (idx > 0) {
+                                    completedSteps = steps.take(idx).toSet()
+                                }
                             }
-                        }
-                    }
+                        },
+                        onEpgProgress = { done, total ->
+                            epgDone = done
+                            epgTotal = total
+                        },
+                    )
                 } else {
                     // M3U: nothing to bulk sync
                     completedSteps = steps.toSet()
@@ -138,10 +149,21 @@ fun SyncScreen(
                         Spacer(Modifier.height(8.dp))
                         when {
                             isDone -> Text("✓ Done", fontSize = 14.sp, color = Color(0xFF4CAF50))
-                            isActive -> CircularProgressIndicator(
-                                color = SlAccent,
-                                modifier = Modifier.height(20.dp).width(20.dp),
-                            )
+                            isActive -> {
+                                if (step == "GUIDE" && epgTotal > 0) {
+                                    // Real EPG progress: "1234 / 5000"
+                                    Text(
+                                        "$epgDone / $epgTotal",
+                                        fontSize = 13.sp,
+                                        color = SlAccent,
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        color = SlAccent,
+                                        modifier = Modifier.height(20.dp).width(20.dp),
+                                    )
+                                }
+                            }
                             else -> Text("Waiting...", fontSize = 14.sp, color = SlTextDim)
                         }
                     }
@@ -163,5 +185,13 @@ fun SyncScreen(
         } else {
             Text("Please wait.......", fontSize = 16.sp, color = SlTextDim)
         }
+
+        Spacer(Modifier.weight(1f))
+        Text(
+            "Developed By: Ahmed Raza Bukhari +92 332 0313333",
+            fontSize = 14.sp,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 24.dp),
+        )
     }
 }
