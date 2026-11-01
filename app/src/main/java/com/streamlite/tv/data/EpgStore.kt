@@ -5,8 +5,12 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * App-wide EPG (programme) cache. Survives screen navigation — once a
@@ -14,7 +18,8 @@ import kotlinx.coroutines.launch
  * in this session, so "Loading programme…" stops reappearing.
  *
  * Call [prefetchAll] after the stream list is loaded; it fills the cache
- * for every channel in the background without blocking the UI.
+ * for every channel using parallel requests (10 at a time) so the sync
+ * screen can show real progress and finish before the user enters.
  */
 object EpgStore {
     val cache: SnapshotStateMap<Int, String> = mutableStateMapOf()
@@ -31,26 +36,70 @@ object EpgStore {
     }
 
     /**
-     * Fetch now/next for every stream id in the background.
-     * Skips ids already cached. Safe to call repeatedly — only one
-     * prefetch runs at a time.
+     * Fetch now/next for every stream id using parallel requests.
+     * Reports (done, total) progress. Skips ids already cached.
+     * Safe to call repeatedly — only one prefetch runs at a time.
      */
-    fun prefetchAll(client: XtreamClient, streamIds: List<Int>) {
+    fun prefetchAll(
+        client: XtreamClient,
+        streamIds: List<Int>,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ) {
         if (prefetchJob?.isActive == true) return
         prefetchJob = CoroutineScope(Dispatchers.IO).launch {
-            for (id in streamIds) {
-                if (cache.containsKey(id)) continue
-                try {
-                    val (now, next) = client.epgNowNext(id)
-                    val text = format(now, next)
-                    cache[id] = text
-                } catch (_: Exception) {
-                    cache[id] = ""
+            val ids = streamIds.filter { !cache.containsKey(it) }
+            val total = ids.size
+            if (total == 0) {
+                onProgress(0, 0)
+                return@launch
+            }
+            val done = AtomicInteger(0)
+            val semaphore = Semaphore(12) // 12 parallel requests — fast but gentle
+            val jobs = ids.map { id ->
+                async {
+                    semaphore.withPermit {
+                        try {
+                            val (now, next) = client.epgNowNext(id)
+                            cache[id] = format(now, next)
+                        } catch (_: Exception) {
+                            cache[id] = ""
+                        }
+                        onProgress(done.incrementAndGet(), total)
+                    }
                 }
-                // Be gentle with the panel: small gap between requests
-                delay(120)
+            }
+            jobs.awaitAll()
+        }
+    }
+
+    /** Suspend version — waits for prefetch to complete. Use in sync flow. */
+    suspend fun prefetchAllAndWait(
+        client: XtreamClient,
+        streamIds: List<Int>,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ) {
+        val ids = streamIds.filter { !cache.containsKey(it) }
+        val total = ids.size
+        if (total == 0) {
+            onProgress(0, 0)
+            return
+        }
+        val done = AtomicInteger(0)
+        val semaphore = Semaphore(12)
+        val jobs = ids.map { id ->
+            CoroutineScope(Dispatchers.IO).async {
+                semaphore.withPermit {
+                    try {
+                        val (now, next) = client.epgNowNext(id)
+                        cache[id] = format(now, next)
+                    } catch (_: Exception) {
+                        cache[id] = ""
+                    }
+                    onProgress(done.incrementAndGet(), total)
+                }
             }
         }
+        jobs.awaitAll()
     }
 
     fun clear() {
