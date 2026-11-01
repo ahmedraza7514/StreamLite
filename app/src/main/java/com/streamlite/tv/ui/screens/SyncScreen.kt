@@ -189,7 +189,8 @@ fun SyncScreen(
         Spacer(Modifier.weight(1f))
         Text(
             "Developed By: Ahmed Bukhari +92 332 0313333",
-            fontSize = 14.sp,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
             color = Color.White,
             modifier = Modifier.padding(bottom = 24.dp),
         )
