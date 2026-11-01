@@ -224,6 +224,7 @@ fun SeriesScreen(
                                     s.name,
                                     fontSize = 14.sp,
                                     color = Color.White,
+                                    fontWeight = FontWeight.Bold,
                                     maxLines = 2,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
