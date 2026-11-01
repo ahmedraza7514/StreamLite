@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
@@ -137,12 +138,28 @@ fun PlayerScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // Title overlay (bottom-left, above controller), white text
+        // Updates when playlist advances (Next/Prev)
         var showTitle by remember { mutableStateOf(true) }
+        var currentTitle by remember { mutableStateOf(title) }
+        // Listen for playlist index changes to update title
+        DisposableEffect(player) {
+            val listener = object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val idx = player.currentMediaItemIndex
+                    if (playlist.isNotEmpty() && idx in playlist.indices) {
+                        currentTitle = playlist[idx].title
+                    }
+                }
+            }
+            player.addListener(listener)
+            onDispose { player.removeListener(listener) }
+        }
         if (showTitle) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 64.dp),
+                    .padding(start = 16.dp, bottom = 64.dp)
+                    .zIndex(1f),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xAA000000),
@@ -150,7 +167,7 @@ fun PlayerScreen(
                 ),
             ) {
                 Text(
-                    title,
+                    currentTitle,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
@@ -192,7 +209,7 @@ fun PlayerScreen(
 
         // Bottom-right controls: ZOOM + VOL + AUDIO + SUBS (near settings gear)
         Column(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 64.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 64.dp).zIndex(1f),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
