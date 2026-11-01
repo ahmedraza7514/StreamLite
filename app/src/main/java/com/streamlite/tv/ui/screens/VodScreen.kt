@@ -118,10 +118,10 @@ fun VodScreen(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     item(key = "all") {
-                        SidebarRow("All Movies", allMovies?.size ?: 0, selectedCat.isEmpty()) { loadCategory("") }
+                        SidebarRow("All Movies", 0, selectedCat.isEmpty()) { loadCategory("") }
                     }
                     items(categories ?: emptyList(), key = { it.id }) { cat ->
-                        SidebarRow(cat.name, catCounts[cat.id] ?: 0, selectedCat == cat.id) { loadCategory(cat.id) }
+                        SidebarRow(cat.name, 0, selectedCat == cat.id) { loadCategory(cat.id) }
                     }
                 }
             }
