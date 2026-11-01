@@ -281,6 +281,8 @@ private fun QuadPlayer(
                 PlayerView(ctx).apply {
                     this.player = player
                     useController = false
+                    // Fill the box completely (no black bars)
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
