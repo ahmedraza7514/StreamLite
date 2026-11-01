@@ -490,6 +490,7 @@ private fun ChannelGridCard(
                 item.name,
                 fontSize = 13.sp,
                 color = Color.White,
+                fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
