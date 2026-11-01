@@ -257,6 +257,16 @@ fun LiveTvScreen(
         }
         Spacer(Modifier.height(12.dp))
 
+        // Capture once: avoids NPE if state changes between null-check and usage
+        // Apply search filter + sort (defined before Recent Views so replay can use it)
+        val ch = channels?.let { list ->
+            var result = if (searchQuery.isBlank()) list
+                else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
+            result = if (sortAsc) result.sortedBy { it.name.lowercase() }
+                else result.sortedByDescending { it.name.lowercase() }
+            result
+        }
+
         // Recent Views — quick access to recently watched
         val recent = RecentViewsStore.items
         if (recent.isNotEmpty()) {
@@ -307,15 +317,6 @@ fun LiveTvScreen(
             }
         }
 
-        // Capture once: avoids NPE if state changes between null-check and usage
-        // Apply search filter + sort
-        val ch = channels?.let { list ->
-            var result = if (searchQuery.isBlank()) list
-                else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            result = if (sortAsc) result.sortedBy { it.name.lowercase() }
-                else result.sortedByDescending { it.name.lowercase() }
-            result
-        }
         val err = error
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
