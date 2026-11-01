@@ -34,6 +34,7 @@ import com.streamlite.tv.ui.Screen
 import com.streamlite.tv.ui.screens.HomeScreen
 import com.streamlite.tv.ui.screens.LiveTvScreen
 import com.streamlite.tv.ui.screens.LoginScreen
+import com.streamlite.tv.ui.screens.MultiViewScreen
 import com.streamlite.tv.ui.screens.PlayerScreen
 import com.streamlite.tv.ui.screens.SyncScreen
 import com.streamlite.tv.ui.screens.SeriesDetailScreen
@@ -164,5 +165,6 @@ private fun AppRoot() {
         }, { url, title -> play(url, title) })
         is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, { url, title -> play(url, title) })
         is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex, s.info)
+        is Screen.MultiView -> MultiViewScreen(session!!)
     }
 }
