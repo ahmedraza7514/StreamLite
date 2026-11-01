@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +39,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.Episode
 import com.streamlite.tv.data.LoginSession
+import com.streamlite.tv.data.RecentViewsStore
+import com.streamlite.tv.data.ScrollStateStore
 import com.streamlite.tv.data.SeriesInfo
 import com.streamlite.tv.data.SeriesItem
 import com.streamlite.tv.data.XtreamCategory
@@ -59,6 +63,7 @@ import androidx.compose.material3.CardDefaults
 fun SeriesScreen(
     session: LoginSession,
     onOpenDetail: (seriesId: Int, title: String) -> Unit,
+    onPlayEpisode: (url: String, title: String) -> Unit = { _, _ -> },
 ) {
     val client = remember { XtreamClient(session.server, session.username, session.password) }
     val scope = rememberCoroutineScope()
@@ -102,12 +107,12 @@ fun SeriesScreen(
     }
 
     Row(modifier = Modifier.fillMaxSize().background(SlBackground)) {
-        // LEFT SIDEBAR
+        // LEFT SIDEBAR — pure black background
         Column(
             modifier = Modifier.width(280.dp).fillMaxSize()
-                .background(Color(0xFF0F1E2E)).padding(vertical = 24.dp),
+                .background(Color.Black).padding(vertical = 24.dp),
         ) {
-            Text("Series", style = MaterialTheme.typography.headlineSmall, color = SlText,
+            Text("Series", style = MaterialTheme.typography.headlineSmall, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(16.dp))
             if (categories == null && error == null) {
@@ -145,6 +150,42 @@ fun SeriesScreen(
         }
         Spacer(Modifier.height(12.dp))
 
+        // Recent Views (episodes)
+        val recent = RecentViewsStore.items.filter { it.kind == "episode" }
+        if (recent.isNotEmpty()) {
+            Text(
+                "Recent Views",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                items(recent, key = { it.url }) { r ->
+                    Card(
+                        onClick = { onPlayEpisode(r.url, r.title) },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1E3A5F),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(
+                            r.title,
+                            fontSize = 13.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                .widthIn(max = 200.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         val sr = series?.let { list ->
             var result = if (searchQuery.isBlank()) list
                 else list.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -162,6 +203,7 @@ fun SeriesScreen(
                     contentAlignment = Alignment.Center,
                 ) { Text("No series here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyVerticalGrid(
+                    state = ScrollStateStore.seriesGrid,
                     columns = GridCells.Fixed(5),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -182,11 +224,12 @@ fun SeriesScreen(
                                 Text(
                                     s.name,
                                     fontSize = 14.sp,
+                                    color = Color.White,
                                     maxLines = 2,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                                 if (s.rating.isNotEmpty()) {
-                                    Text("★ ${s.rating}", fontSize = 12.sp, color = SlTextDim)
+                                    Text("★ ${s.rating}", fontSize = 12.sp, color = Color(0xFFCCCCCC))
                                 }
                             }
                         }
@@ -206,7 +249,7 @@ private fun SeriesSidebarRow(name: String, count: Int, selected: Boolean, onClic
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else Color.Transparent,
-            contentColor = if (selected) Color.Black else SlText,
+            contentColor = if (selected) Color.Black else Color.White,
         ),
     ) {
         Row(
@@ -214,8 +257,8 @@ private fun SeriesSidebarRow(name: String, count: Int, selected: Boolean, onClic
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(name, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Text("($count)", fontSize = 13.sp, color = if (selected) Color.Black else SlTextDim)
+            Text(name, fontSize = 15.sp, color = Color.White, modifier = Modifier.weight(1f))
+            Text("($count)", fontSize = 13.sp, color = if (selected) Color.Black else Color(0xFFCCCCCC))
         }
     }
 }
