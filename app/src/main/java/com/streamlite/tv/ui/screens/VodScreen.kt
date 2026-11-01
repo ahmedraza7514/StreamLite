@@ -248,6 +248,7 @@ fun VodScreen(
                                     fontSize = 14.sp,
                                     maxLines = 2,
                                     color = Color.White,
+                                    fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                                 if (m.rating.isNotEmpty()) {
