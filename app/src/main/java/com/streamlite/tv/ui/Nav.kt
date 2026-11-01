@@ -8,6 +8,7 @@ sealed class Screen {
     data object LiveTv : Screen()
     data object Vod : Screen()
     data object Series : Screen()
+    data object MultiView : Screen()
     data class SeriesDetail(val seriesId: Int, val title: String) : Screen()
     /**
      * Full-screen player. [playlist] holds the playable queue (url + title);
