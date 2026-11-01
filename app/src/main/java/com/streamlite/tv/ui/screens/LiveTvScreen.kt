@@ -270,11 +270,11 @@ fun LiveTvScreen(
             result
         }
 
-        // Recent Views — quick access to recently watched
-        val recent = RecentViewsStore.items
+        // Recent Views — quick access to recently watched (live only)
+        val recent = RecentViewsStore.items.filter { it.kind == "live" }
         if (recent.isNotEmpty()) {
             Text(
-                "Recent Views",
+                "Recent Played",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
