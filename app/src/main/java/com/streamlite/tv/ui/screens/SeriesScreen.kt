@@ -83,8 +83,13 @@ fun SeriesScreen(
             try {
                 // Per-category load — avoids OOM from bulk-loading on TV boxes
                 series = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client.seriesAll()
-                    else client.series(catId)
+                    when {
+                        catId == "recent" -> client.seriesAll()
+                            .sortedByDescending { it.seriesId }
+                            .take(50) // 50 most recently added
+                        catId.isEmpty() -> client.seriesAll()
+                        else -> client.series(catId)
+                    }
                 }
             } catch (e: Exception) {
                 error = e.message ?: "Could not load series."
@@ -119,6 +124,9 @@ fun SeriesScreen(
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    item(key = "recent") {
+                        SeriesSidebarRow("RECENTLY ADDED", 0, selectedCat == "recent") { loadCategory("recent") }
+                    }
                     item(key = "all") {
                         SeriesSidebarRow("All Series", 0, selectedCat.isEmpty()) { loadCategory("") }
                     }
