@@ -26,6 +26,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.M3uChannel
+import com.streamlite.tv.data.RecentItem
+import com.streamlite.tv.data.RecentViewsStore
 import com.streamlite.tv.data.SessionManager
 import com.streamlite.tv.ui.PlayerItem
 import com.streamlite.tv.ui.Screen
