@@ -73,23 +73,29 @@ fun SeriesScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var sortAsc by remember { mutableStateOf(true) }
-    // XCIPTV-style prefetch: all series once, category clicks filter locally
-    var allSeries by remember { mutableStateOf<List<SeriesItem>?>(null) }
 
     fun loadCategory(catId: String) {
         selectedCat = catId
         error = null
-        // Local filter over prefetched series — instant, zero network (XCIPTV model)
-        series = allSeries?.filter { catId.isEmpty() || it.categoryId == catId }
+        series = null // show loading
+        scope.launch {
+            try {
+                // Per-category load — avoids OOM from bulk-loading on TV boxes
+                series = withContext(Dispatchers.IO) {
+                    if (catId.isEmpty()) client.seriesAll()
+                    else client.series(catId)
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Could not load series."
+            }
+        }
     }
 
     fun reload() {
         error = null
-        series = null
         scope.launch {
             try {
                 categories = withContext(Dispatchers.IO) { client.seriesCategories() }
-                allSeries = withContext(Dispatchers.IO) { client.seriesAll() }
                 loadCategory(selectedCat)
             } catch (e: Exception) {
                 error = e.message ?: "Could not load series."
@@ -98,13 +104,6 @@ fun SeriesScreen(
     }
 
     LaunchedEffect(Unit) { reload() }
-
-    // Category counts for sidebar
-    val catCounts = remember(allSeries, categories) {
-        val map = mutableMapOf<String, Int>()
-        allSeries?.forEach { s -> map[s.categoryId] = (map[s.categoryId] ?: 0) + 1 }
-        map
-    }
 
     Row(modifier = Modifier.fillMaxSize().background(SlBackground)) {
         // LEFT SIDEBAR — pure black background
@@ -120,10 +119,10 @@ fun SeriesScreen(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     item(key = "all") {
-                        SeriesSidebarRow("All Series", allSeries?.size ?: 0, selectedCat.isEmpty()) { loadCategory("") }
+                        SeriesSidebarRow("All Series", 0, selectedCat.isEmpty()) { loadCategory("") }
                     }
                     items(categories ?: emptyList(), key = { it.id }) { cat ->
-                        SeriesSidebarRow(cat.name, catCounts[cat.id] ?: 0, selectedCat == cat.id) { loadCategory(cat.id) }
+                        SeriesSidebarRow(cat.name, 0, selectedCat == cat.id) { loadCategory(cat.id) }
                     }
                 }
             }
