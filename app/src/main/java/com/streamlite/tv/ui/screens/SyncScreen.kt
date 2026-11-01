@@ -60,7 +60,7 @@ fun SyncScreen(
     var vodCount by remember { mutableStateOf(0) }
     var seriesCount by remember { mutableStateOf(0) }
 
-    val steps = listOf("LIVE TV", "VOD", "SERIES", "GUIDE")
+    val steps = listOf("LIVE TV", "VOD", "SERIES")
 
     fun startSync() {
         error = null
