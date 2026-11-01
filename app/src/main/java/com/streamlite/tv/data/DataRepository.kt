@@ -30,15 +30,13 @@ object DataRepository {
         liveCategories = lc
         liveStreams = ls
 
-        // VOD
+        // VOD — categories only (streams load per-category on demand to avoid OOM on TV boxes)
         onProgress("VOD")
         vodCategories = withContext(Dispatchers.IO) { client.vodCategories() }
-        vodStreams = withContext(Dispatchers.IO) { client.vodStreamsAll() }
 
-        // SERIES
+        // SERIES — categories only (series load per-category on demand to avoid OOM on TV boxes)
         onProgress("SERIES")
         seriesCategories = withContext(Dispatchers.IO) { client.seriesCategories() }
-        seriesList = withContext(Dispatchers.IO) { client.seriesAll() }
 
         // GUIDE — EPG prefetched HERE with parallel requests and real progress,
         // so "Loading programme..." never appears after sync completes.
