@@ -123,6 +123,21 @@ class XtreamClient(server: String, username: String, password: String) {
         return out
     }
 
+    /** Full movie details for the info overlay. */
+    fun vodInfo(vodId: Int): VodInfo {
+        val root = getJson(apiUrl("get_vod_info", "&vod_id=$vodId"))
+        val info = root.optJSONObject("info") ?: root
+        val movieData = root.optJSONObject("movie_data") ?: info
+        return VodInfo(
+            rating = movieData.optString("rating").ifEmpty { info.optString("rating") },
+            genre = movieData.optString("genre").ifEmpty { info.optString("genre") },
+            releaseDate = movieData.optString("releasedate").ifEmpty { info.optString("release_date") },
+            plot = movieData.optString("plot").ifEmpty { info.optString("plot") },
+            cast = movieData.optString("cast").ifEmpty { info.optString("cast") },
+            director = movieData.optString("director").ifEmpty { info.optString("director") },
+        )
+    }
+
     // ---------- series ----------
 
     fun series(categoryId: String): List<SeriesItem> =
