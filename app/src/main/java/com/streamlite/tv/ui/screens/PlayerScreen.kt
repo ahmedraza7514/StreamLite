@@ -38,6 +38,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.C
+import androidx.media3.common.Tracks
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -87,6 +90,12 @@ fun PlayerScreen(
     var volume by remember { mutableStateOf(1f) }
     var brightness by remember { mutableStateOf(-1f) } // -1 = system default
     val activity = context as? android.app.Activity
+
+    // Audio / subtitle track dialogs
+    var showAudioDialog by remember { mutableStateOf(false) }
+    var showSubsDialog by remember { mutableStateOf(false) }
+    // Snapshot of current tracks for the dialogs (refreshed when opened)
+    var trackSnapshot by remember { mutableStateOf<Tracks?>(null) }
 
     fun applyZoom(idx: Int) {
         zoomIdx = idx
@@ -239,6 +248,46 @@ fun PlayerScreen(
                 }
             }
 
+            // AUDIO tracks button
+            Card(
+                onClick = {
+                    trackSnapshot = player.currentTracks
+                    showAudioDialog = true
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xAA000000),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("AUDIO", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // SUBTITLES button
+            Card(
+                onClick = {
+                    trackSnapshot = player.currentTracks
+                    showSubsDialog = true
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xAA000000),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("SUBS", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
             // Volume & brightness sliders panel
             if (showVbPanel) {
                 Card(
@@ -273,6 +322,137 @@ fun PlayerScreen(
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
+                }
+            }
+        } // top-right Column
+
+        // ---- Audio track dialog ----
+        if (showAudioDialog) {
+            TrackDialog(
+                title = "Audio",
+                tracks = trackSnapshot,
+                type = C.TRACK_TYPE_AUDIO,
+                allowOff = false,
+                onSelect = { group, trackIdx ->
+                    player.trackSelectionParameters = player.trackSelectionParameters
+                        .buildUpon()
+                        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
+                        .build()
+                    showAudioDialog = false
+                },
+                onDismiss = { showAudioDialog = false },
+            )
+        }
+
+        // ---- Subtitle track dialog ----
+        if (showSubsDialog) {
+            TrackDialog(
+                title = "Subtitles",
+                tracks = trackSnapshot,
+                type = C.TRACK_TYPE_TEXT,
+                allowOff = true,
+                onSelect = { group, trackIdx ->
+                    player.trackSelectionParameters = player.trackSelectionParameters
+                        .buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
+                        .build()
+                    showSubsDialog = false
+                },
+                onOff = {
+                    player.trackSelectionParameters = player.trackSelectionParameters
+                        .buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        .build()
+                    showSubsDialog = false
+                },
+                onDismiss = { showSubsDialog = false },
+            )
+        }
+    }
+}
+
+/** Generic audio/subtitle track picker dialog. */
+@Composable
+private fun TrackDialog(
+    title: String,
+    tracks: Tracks?,
+    type: Int,
+    allowOff: Boolean,
+    onSelect: (Tracks.Group, Int) -> Unit,
+    onOff: (() -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
+    val groups = tracks?.groups?.filter { it.type == type } ?: emptyList()
+    Card(
+        modifier = Modifier.fillMaxWidth(0.85f),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF0F1E2E),
+            contentColor = Color.White,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(12.dp))
+            if (allowOff && onOff != null) {
+                Card(
+                    onClick = onOff,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1E3A5F),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text("Off", fontSize = 15.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                }
+            }
+            if (groups.isEmpty()) {
+                Text("No tracks available.", fontSize = 14.sp, color = Color(0xFFAAAAAA),
+                    modifier = Modifier.padding(vertical = 8.dp))
+            } else {
+                groups.forEach { group ->
+                    for (i in 0 until group.length) {
+                        val fmt = group.getTrackFormat(i)
+                        val label = fmt.label
+                            ?: fmt.language?.let { "Lang: $it" }
+                            ?: "Track ${i + 1}"
+                        val selected = group.isSelected && run {
+                            // check if this specific track is the selected one
+                            val sel = group.mediaTrackGroup
+                            // best-effort: highlight if group selected and only one track
+                            group.length == 1
+                        }
+                        Card(
+                            onClick = { onSelect(group, i) },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (selected) SlAccent else Color(0xFF1E3A5F),
+                                contentColor = if (selected) Color.Black else Color.White,
+                            ),
+                        ) {
+                            Text(label, fontSize = 15.sp,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Card(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Transparent,
+                    contentColor = Color(0xFFAAAAAA),
+                ),
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text("Close", fontSize = 14.sp)
                 }
             }
         }
