@@ -73,6 +73,14 @@ fun HomeScreen(
             }
             items(1) {
                 MenuCard(
+                    title = "4 Screen",
+                    subtitle = "Watch 4 channels at once",
+                    onClick = { onNavigate(Screen.MultiView) },
+                    modifier = Modifier.width(330.dp).height(180.dp),
+                )
+            }
+            items(1) {
+                MenuCard(
                     title = "Log out",
                     subtitle = "Switch account",
                     onClick = onLogout,
