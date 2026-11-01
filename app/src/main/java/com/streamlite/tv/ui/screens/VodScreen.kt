@@ -80,8 +80,13 @@ fun VodScreen(
             try {
                 // Per-category load — avoids OOM from bulk-loading 10k+ movies on TV boxes
                 movies = withContext(Dispatchers.IO) {
-                    if (catId.isEmpty()) client.vodStreamsAll()
-                    else client.vodStreams(catId)
+                    when {
+                        catId == "recent" -> client.vodStreamsAll()
+                            .sortedByDescending { it.streamId }
+                            .take(50) // 50 most recently added
+                        catId.isEmpty() -> client.vodStreamsAll()
+                        else -> client.vodStreams(catId)
+                    }
                 }
             } catch (e: Exception) {
                 error = e.message ?: "Could not load movies."
@@ -118,6 +123,9 @@ fun VodScreen(
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    item(key = "recent") {
+                        SidebarRow("RECENTLY ADDED", 0, selectedCat == "recent") { loadCategory("recent") }
+                    }
                     item(key = "all") {
                         SidebarRow("All Movies", 0, selectedCat.isEmpty()) { loadCategory("") }
                     }
