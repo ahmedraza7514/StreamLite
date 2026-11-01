@@ -129,7 +129,7 @@ private fun ChannelPicker(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            items(filtered, key = { it.id }) { ch ->
+            items(filtered, key = { it.streamId }) { ch ->
                 val isSel = selected.contains(ch)
                 Card(
                     onClick = { onToggle(ch) },
