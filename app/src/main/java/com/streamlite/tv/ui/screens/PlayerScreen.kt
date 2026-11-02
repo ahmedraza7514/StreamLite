@@ -1,6 +1,23 @@
 package com.streamlite.tv.ui.screens
 
+// ============================================================================
+// DRAFT — prepared 2026-11-02 morning for Ahmed Bhai's XCIPTV-style player bar
+// (consolidated list item 1, deferred from 2026-11-01 night).
+//
+// XCIPTV source reviewed (~/workspace/xciptv-src):
+//  - player = Media3 PlayerView with use_controller="true"
+//  - 5 zoom modes in PlayerSettingsActivity (exo: best fit / fixed height /
+//    fixed width / fill / zoom; vlc: best fit / 16:9 / 4:3 / original / fill)
+//  - custom title + ImageButton overlays auto-hiding with the controller
+// This draft mirrors that pattern in Compose: the native ExoPlayer
+// controller is OFF and the whole playtime bar (thumbnail + title +
+// transport + scrubber + ZOOM/AUDIO/SUBS/VOL) is one custom Compose bar
+// that auto-hides after 3s, exactly like XCIPTV.
+// ============================================================================
+
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,25 +31,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Slider
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,19 +69,28 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
+import coil.compose.AsyncImage
 import com.streamlite.tv.player.PlayerFactory
 import com.streamlite.tv.ui.PlayerItem
 import com.streamlite.tv.ui.theme.SlAccent
+import kotlinx.coroutines.delay
 
 /**
- * Full-screen playback. The player is built by [PlayerFactory] with the
- * slow-network tuning (large buffer, hardware decoding, 720p start cap).
+ * Full-screen playback with a custom XCIPTV-style controller.
  *
- * If an HLS (.m3u8) stream fails, we retry once over plain MPEG-TS (.ts),
- * which some panels serve more reliably.
+ * The native ExoPlayer controller is OFF — the playtime bar is built in
+ * Compose: [thumbnail] + title on the left, a playtime scrubber, and all
+ * controls (rewind / play-pause / forward / ZOOM / AUDIO / SUBS / VOL)
+ * INSIDE the bar. The bar auto-hides after 3s; tap the video to show it.
+ *
+ * The player is built by [PlayerFactory] with the slow-network tuning
+ * (large buffer, hardware decoding, 720p start cap). If an HLS (.m3u8)
+ * stream fails, we retry once over plain MPEG-TS (.ts).
  *
  * [playlist] + [startIndex]: when a queue is supplied, the player's
  * Next/Previous buttons jump between channels instead of doing nothing.
+ * [thumb]: logo/poster URL shown as the title thumbnail in the bar
+ * (falls back to a letter tile when empty).
  */
 @Composable
 fun PlayerScreen(
@@ -68,6 +99,7 @@ fun PlayerScreen(
     playlist: List<PlayerItem> = emptyList(),
     startIndex: Int = 0,
     info: String = "",
+    thumb: String = "",
 ) {
     val context = LocalContext.current
     val triedTsFallback = remember { mutableStateOf(false) }
@@ -99,11 +131,28 @@ fun PlayerScreen(
     // Snapshot of current tracks for the dialogs (refreshed when opened)
     var trackSnapshot by remember { mutableStateOf<Tracks?>(null) }
 
+    // Custom controller state
+    var controlsVisible by remember { mutableStateOf(true) }
+    var touchTick by remember { mutableIntStateOf(0) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var isBuffering by remember { mutableStateOf(false) }
+    var positionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(0L) }
+    var currentTitle by remember { mutableStateOf(title) }
+    var sliderDragging by remember { mutableStateOf(false) }
+    var sliderValue by remember { mutableStateOf(0f) } // 0..1 while dragging
+
     fun applyZoom(idx: Int) {
         zoomIdx = idx
         val mode = zoomModes[idx]
         playerViewRef?.resizeMode = mode.resizeMode
         showZoomMenu = false
+    }
+
+    /** Any tap on video or control resets the 3s auto-hide timer. */
+    fun poke() {
+        controlsVisible = true
+        touchTick++
     }
 
     val player = remember(url, playlist) {
@@ -119,6 +168,12 @@ fun PlayerScreen(
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 triedTsFallback.value = false
+            }
+            override fun onIsPlayingChanged(nowPlaying: Boolean) {
+                isPlaying = nowPlaying
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isBuffering = playbackState == Player.STATE_BUFFERING
             }
         })
         if (playlist.isNotEmpty()) {
@@ -137,56 +192,52 @@ fun PlayerScreen(
         onDispose { player.release() }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // Title overlay (bottom-left, above controller), white text
-        // Updates when playlist advances (Next/Prev)
-        // Auto-hides with the ExoPlayer controller
-        var showTitle by remember { mutableStateOf(true) }
-        var currentTitle by remember { mutableStateOf(title) }
-        var controllerVisible by remember { mutableStateOf(true) }
-        // Listen for playlist index changes to update title
-        DisposableEffect(player) {
-            val listener = object : Player.Listener {
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    val idx = player.currentMediaItemIndex
-                    if (playlist.isNotEmpty() && idx in playlist.indices) {
-                        currentTitle = playlist[idx].title
-                    }
-                }
-            }
-            player.addListener(listener)
-            onDispose { player.removeListener(listener) }
-        }
-        if (showTitle && controllerVisible) {
-            Card(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 16.dp)
-                    .zIndex(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xAA000000),
-                    contentColor = Color.White,
-                ),
-            ) {
-                Text(
-                    currentTitle,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                )
-                if (info.isNotEmpty()) {
-                    Text(
-                        info,
-                        fontSize = 13.sp,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp),
-                    )
+    // Listen for playlist index changes to update the bar title
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val idx = player.currentMediaItemIndex
+                if (playlist.isNotEmpty() && idx in playlist.indices) {
+                    currentTitle = playlist[idx].title
                 }
             }
         }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
 
+    // Auto-hide the bar 3s after the last interaction (XCIPTV behaviour)
+    LaunchedEffect(touchTick) {
+        delay(3000)
+        controlsVisible = false
+    }
+
+    // Playtime ticker (only while the bar is up — saves battery on the box)
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (controlsVisible) {
+                positionMs = player.currentPosition
+                durationMs = player.duration
+                if (!sliderDragging && durationMs > 0) {
+                    sliderValue = (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                }
+            }
+            delay(500)
+        }
+    }
+
+    fun fmt(ms: Long): String {
+        val s = (ms / 1000).coerceAtLeast(0)
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec)
+        else "%02d:%02d".format(m, sec)
+    }
+
+    val hasDuration = durationMs > 0
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         val currentAspect = zoomModes[zoomIdx].aspect
         val playerModifier = if (currentAspect != null) {
             Modifier
@@ -200,164 +251,250 @@ fun PlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = player
-                    // Use TextureView so Compose overlays (buttons/title) draw on top of video
-                    useController = true
-                    controllerShowTimeoutMs = 3000
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+                    // Native controller OFF — the bar below is the controller
+                    useController = false
                     resizeMode = zoomModes[zoomIdx].resizeMode
-                    // Track controller visibility to auto-hide our overlays
-                    setControllerVisibilityListener(
-                        PlayerView.ControllerVisibilityListener { visibility ->
-                            controllerVisible = visibility == android.view.View.VISIBLE
-                        }
-                    )
                     playerViewRef = this
                 }
             },
-            modifier = playerModifier,
+            modifier = playerModifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { poke() },
         )
 
-        // Bottom controls: ZOOM + VOL + AUDIO + SUBS in a horizontal row
-        // Positioned above the controller, auto-hides with it
-        if (controllerVisible) {
-        Row(
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp).zIndex(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // ZOOM button -> 5-option menu
-            Box {
-                Card(
-                    onClick = { showZoomMenu = true },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xAA000000),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center,
+        // Buffering spinner (shows even when the bar is hidden)
+        if (isBuffering) {
+            CircularProgressIndicator(
+                color = SlAccent,
+                modifier = Modifier.align(Alignment.Center).size(56.dp),
+            )
+        }
+
+        // ================= XCIPTV-style playtime bar =================
+        if (controlsVisible) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .zIndex(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xDD000000),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    // Row 1: thumbnail + title (+ info)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("ZOOM", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                DropdownMenu(
-                    expanded = showZoomMenu,
-                    onDismissRequest = { showZoomMenu = false },
-                    modifier = Modifier.background(Color.Black),
-                ) {
-                    zoomModes.forEachIndexed { idx, mode ->
-                        DropdownMenuItem(
-                            text = {
+                        if (thumb.isNotEmpty()) {
+                            AsyncImage(
+                                model = thumb,
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF1E3A5F)),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SlAccent),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Text(
-                                    mode.label,
-                                    color = if (idx == zoomIdx) SlAccent else Color.White,
-                                    fontSize = 15.sp,
+                                    currentTitle.firstOrNull()?.uppercase() ?: "•",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
                                 )
-                            },
-                            onClick = { applyZoom(idx) },
-                        )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                currentTitle,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (info.isNotEmpty()) {
+                                Text(
+                                    info,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFCCCCCC),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
-                }
-            }
 
-            // Volume/Brightness toggle button
-            Card(
-                onClick = { showVbPanel = !showVbPanel },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xAA000000),
-                    contentColor = Color.White,
-                ),
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("VOL", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+                    Spacer(Modifier.height(6.dp))
 
-            // AUDIO tracks button
-            Card(
-                onClick = {
-                    trackSnapshot = player.currentTracks
-                    showAudioDialog = true
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xAA000000),
-                    contentColor = Color.White,
-                ),
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("AUDIO", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // SUBTITLES button
-            Card(
-                onClick = {
-                    trackSnapshot = player.currentTracks
-                    showSubsDialog = true
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xAA000000),
-                    contentColor = Color.White,
-                ),
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("SUBS", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Volume & brightness sliders panel
-            if (showVbPanel) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xDD000000),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp).width(200.dp)) {
-                        Text("Volume", fontSize = 14.sp, color = Color.White)
-                        Slider(
-                            value = volume,
-                            onValueChange = {
-                                volume = it
-                                player.volume = it
-                            },
+                    // Row 2: playtime scrubber (or LIVE badge for live streams)
+                    if (hasDuration) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("Brightness", fontSize = 14.sp, color = Color.White)
-                        Slider(
-                            value = if (brightness < 0) 0.5f else brightness,
-                            onValueChange = {
-                                brightness = it
-                                activity?.window?.let { win ->
-                                    val lp = win.attributes
-                                    lp.screenBrightness = it
-                                    win.attributes = lp
+                        ) {
+                            Text(fmt(positionMs), fontSize = 13.sp, color = Color.White)
+                            Slider(
+                                value = sliderValue,
+                                onValueChange = {
+                                    sliderDragging = true
+                                    sliderValue = it
+                                },
+                                onValueChangeFinished = {
+                                    player.seekTo((sliderValue * durationMs).toLong())
+                                    sliderDragging = false
+                                    poke()
+                                },
+                                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            )
+                            Text(fmt(durationMs), fontSize = 13.sp, color = Color.White)
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFB00020),
+                                    contentColor = Color.White,
+                                ),
+                            ) {
+                                Text(
+                                    "LIVE",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Row 3: all controls inside the playtime bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Rewind 10s
+                        BarButton("⏪", onClick = {
+                            player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
+                            poke()
+                        })
+                        // Play / pause
+                        BarButton(if (isPlaying) "⏸" else "▶", onClick = {
+                            if (isPlaying) player.pause() else player.play()
+                            poke()
+                        })
+                        // Forward 10s
+                        BarButton("⏩", onClick = {
+                            val target = player.currentPosition + 10_000
+                            player.seekTo(
+                                if (hasDuration) target.coerceAtMost(durationMs) else target
+                            )
+                            poke()
+                        })
+
+                        // ZOOM -> 5-option menu (XCIPTV modes)
+                        Box {
+                            BarButton("ZOOM", onClick = {
+                                showZoomMenu = true
+                                poke()
+                            })
+                            DropdownMenu(
+                                expanded = showZoomMenu,
+                                onDismissRequest = { showZoomMenu = false },
+                                modifier = Modifier.background(Color.Black),
+                            ) {
+                                zoomModes.forEachIndexed { idx, mode ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                mode.label,
+                                                color = if (idx == zoomIdx) SlAccent else Color.White,
+                                                fontSize = 15.sp,
+                                            )
+                                        },
+                                        onClick = { applyZoom(idx); poke() },
+                                    )
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                            }
+                        }
+
+                        // AUDIO tracks
+                        BarButton("AUDIO", onClick = {
+                            trackSnapshot = player.currentTracks
+                            showAudioDialog = true
+                            poke()
+                        })
+                        // SUBS / CC
+                        BarButton("SUBS", onClick = {
+                            trackSnapshot = player.currentTracks
+                            showSubsDialog = true
+                            poke()
+                        })
+                        // VOL + brightness panel
+                        BarButton("VOL", onClick = {
+                            showVbPanel = !showVbPanel
+                            poke()
+                        })
+
+                        // Volume & brightness sliders panel
+                        if (showVbPanel) {
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xDD000000),
+                                    contentColor = Color.White,
+                                ),
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp).width(200.dp)) {
+                                    Text("Volume", fontSize = 14.sp, color = Color.White)
+                                    Slider(
+                                        value = volume,
+                                        onValueChange = {
+                                            volume = it
+                                            player.volume = it
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Brightness", fontSize = 14.sp, color = Color.White)
+                                    Slider(
+                                        value = if (brightness < 0) 0.5f else brightness,
+                                        onValueChange = {
+                                            brightness = it
+                                            activity?.window?.let { win ->
+                                                val lp = win.attributes
+                                                lp.screenBrightness = it
+                                                win.attributes = lp
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-        } // top-right Column
+        }
 
-        // ---- Audio track dialog ----
+        // ---- Audio track dialog (modal, above the bar) ----
         if (showAudioDialog) {
             TrackDialog(
                 title = "Audio",
@@ -375,7 +512,7 @@ fun PlayerScreen(
             )
         }
 
-        // ---- Subtitle track dialog ----
+        // ---- Subtitle track dialog (modal, above the bar) ----
         if (showSubsDialog) {
             TrackDialog(
                 title = "Subtitles",
@@ -401,7 +538,26 @@ fun PlayerScreen(
             )
         }
     }
-    } // if (controllerVisible)
+}
+
+/** Small text button used inside the playtime bar. */
+@Composable
+private fun BarButton(label: String, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xAA000000),
+            contentColor = Color.White,
+        ),
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
 }
 
 /** Generic audio/subtitle track picker dialog. */
