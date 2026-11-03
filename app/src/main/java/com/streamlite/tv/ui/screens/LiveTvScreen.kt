@@ -157,10 +157,17 @@ fun LiveTvScreen(
     LaunchedEffect(Unit) { reload() }
 
     // Category counts for sidebar (XCIPTV-style "NAME (count)")
-    val catCounts = remember(allStreams, categories) {
+    // Xtream: from the prefetched in-memory streams (zero extra network).
+    // M3U: from the parsed playlist groups.
+    val catCounts = remember(allStreams, categories, m3uAll) {
         val map = mutableMapOf<String, Int>()
         allStreams?.forEach { s ->
             map[s.categoryId] = (map[s.categoryId] ?: 0) + 1
+        }
+        if (map.isEmpty()) {
+            m3uAll?.forEach { c ->
+                map[c.group] = (map[c.group] ?: 0) + 1
+            }
         }
         map
     }
@@ -196,7 +203,7 @@ fun LiveTvScreen(
                     item(key = "all") {
                         SidebarCategoryRow(
                             name = "All Channels",
-                            count = allStreams?.size ?: 0,
+                            count = allStreams?.size ?: m3uAll?.size ?: 0,
                             selected = selectedCat.isEmpty(),
                             onClick = {
                                 if (client != null) loadXtreamCategory("") else applyM3uFilter("")
@@ -331,10 +338,10 @@ fun LiveTvScreen(
                     contentAlignment = Alignment.Center,
                 ) { Text("No channels here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(5), // XCIPTV-style: 5 channels per row
                     state = ScrollStateStore.liveGrid,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(8.dp),
                 ) {
                     items(ch, key = { it.id to it.directUrl }) { item ->
@@ -508,6 +515,7 @@ private fun ChannelGridCard(
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
