@@ -61,6 +61,7 @@ import java.io.IOException
 fun LoginScreen(
     sessionManager: SessionManager,
     onLoggedIn: (LoginSession) -> Unit,
+    addMode: Boolean = false, // true = add another account without switching to it
 ) {
     var server by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -82,15 +83,18 @@ fun LoginScreen(
                     XtreamClient(server, username, password).login()
                 }
                 if (!active) throw IOException("This account is not active.")
-                sessionManager.saveXtream(server, username, password)
-                onLoggedIn(
-                    LoginSession(
-                        type = LoginType.XTREAM,
-                        server = server.trim().trimEnd('/'),
-                        username = username.trim(),
-                        password = password.trim(),
-                    )
+                val session = LoginSession(
+                    type = LoginType.XTREAM,
+                    server = server.trim().trimEnd('/'),
+                    username = username.trim(),
+                    password = password.trim(),
                 )
+                if (addMode) {
+                    sessionManager.addAccount(session)
+                } else {
+                    sessionManager.saveXtream(server, username, password)
+                }
+                onLoggedIn(session)
             } catch (e: Exception) {
                 error = e.message ?: "Login failed. Check the details and try again."
             } finally {
@@ -110,7 +114,8 @@ fun LoginScreen(
     ) {
         Text("StreamLite", style = MaterialTheme.typography.displaySmall, color = SlAccent)
         Text(
-            "Log in with your Xtream Codes IPTV account",
+            if (addMode) "Add another Xtream Codes IPTV account"
+            else "Log in with your Xtream Codes IPTV account",
             fontSize = 15.sp,
             color = SlTextDim,
             textAlign = TextAlign.Center,
@@ -162,7 +167,11 @@ fun LoginScreen(
                         modifier = Modifier.height(26.dp).width(26.dp),
                     )
                 } else {
-                    Text("Login", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (addMode) "Add Account" else "Login",
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
