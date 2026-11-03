@@ -3,7 +3,6 @@ package com.streamlite.tv.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +42,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
+import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.RecentViewsStore
 import com.streamlite.tv.data.ScrollStateStore
 import com.streamlite.tv.data.VodStream
@@ -110,7 +111,9 @@ fun VodScreen(
 
     LaunchedEffect(Unit) { reload() }
 
-    // Category counts hidden (would require bulk load) — names only for TV-box safety
+    // Per-category counts captured during sync (zero extra network).
+    // Null = not synced yet -> counts stay hidden instead of showing (0).
+    val catCounts = remember { DataRepository.vodCatCounts }
 
     Row(modifier = Modifier.fillMaxSize().background(SlBackground)) {
         // LEFT SIDEBAR
@@ -126,13 +129,13 @@ fun VodScreen(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     item(key = "recent") {
-                        SidebarRow("RECENTLY ADDED", 0, selectedCat == "recent") { loadCategory("recent") }
+                        SidebarRow("RECENTLY ADDED", catCounts?.let { 50 }, selectedCat == "recent") { loadCategory("recent") }
                     }
                     item(key = "all") {
-                        SidebarRow("All Movies", 0, selectedCat.isEmpty()) { loadCategory("") }
+                        SidebarRow("All Movies", catCounts?.values?.sum(), selectedCat.isEmpty()) { loadCategory("") }
                     }
                     items(categories ?: emptyList(), key = { it.id }) { cat ->
-                        SidebarRow(cat.name, 0, selectedCat == cat.id) { loadCategory(cat.id) }
+                        SidebarRow(cat.name, catCounts?.get(cat.id), selectedCat == cat.id) { loadCategory(cat.id) }
                     }
                 }
             }
@@ -257,41 +260,38 @@ fun VodScreen(
                                     shape = RoundedCornerShape(12.dp),
                                 ),
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
-                            ) {
-                                PosterImage(
-                                    m.logo,
-                                    Modifier.fillMaxSize(),
-                                )
-                                // Title overlay at bottom (XCIPTV style)
+                            // Poster on top, title + rating BELOW it (Ahmed Bhai's call —
+                            // the XCIPTV overlay hid the poster artwork)
+                            Column {
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color(0xCC000000),
-                                                ),
-                                            ),
-                                        )
-                                        .padding(8.dp),
+                                        .aspectRatio(2f / 3f)
+                                        .clip(RoundedCornerShape(12.dp)),
                                 ) {
-                                    Column {
-                                        Text(
-                                            m.name,
-                                            fontSize = 14.sp,
-                                            maxLines = 2,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                        if (m.rating.isNotEmpty()) {
-                                            Text("★ ${m.rating}", fontSize = 12.sp, color = Color.White)
-                                        }
-                                    }
+                                    PosterImage(
+                                        m.logo,
+                                        Modifier.fillMaxSize(),
+                                    )
                                 }
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    m.name,
+                                    fontSize = 14.sp,
+                                    maxLines = 2,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
+                                if (m.rating.isNotEmpty()) {
+                                    Text(
+                                        "★ ${m.rating}",
+                                        fontSize = 12.sp,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 4.dp),
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
                             }
                         }
                     }
@@ -303,7 +303,7 @@ fun VodScreen(
 }
 
 @Composable
-private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+private fun SidebarRow(name: String, count: Int?, selected: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
@@ -328,7 +328,10 @@ private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(name, fontSize = 15.sp, color = Color.White, modifier = Modifier.weight(1f))
-            // Count hidden — per-category loading doesn't have totals (TV-box memory safety)
+            // Count from sync (hidden until synced — never shows a fake 0)
+            if (count != null) {
+                Text("($count)", fontSize = 13.sp, color = Color(0xFFCCCCCC))
+            }
         }
     }
 }
