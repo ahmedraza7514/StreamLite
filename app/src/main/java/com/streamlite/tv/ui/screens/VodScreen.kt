@@ -1,6 +1,8 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
@@ -216,6 +218,7 @@ fun VodScreen(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     items(mv, key = { it.streamId }) { m ->
+                        var isFocused by remember { mutableStateOf(false) }
                         Card(
                             onClick = {
                                 // Fetch full movie details (genre/date/plot) then play
@@ -246,6 +249,13 @@ fun VodScreen(
                                 containerColor = Color.Transparent,
                                 contentColor = SlText,
                             ),
+                            modifier = Modifier
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .border(
+                                    width = if (isFocused) 3.dp else 0.dp,
+                                    color = if (isFocused) SlAccent else Color.Transparent,
+                                    shape = RoundedCornerShape(12.dp),
+                                ),
                         ) {
                             Box(
                                 modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
@@ -294,9 +304,18 @@ fun VodScreen(
 
 @Composable
 private fun SidebarRow(name: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(10.dp),
+            ),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else Color.Transparent,
