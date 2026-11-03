@@ -81,6 +81,38 @@ fun HomeScreen(
             }
             items(1) {
                 MenuCard(
+                    title = "Search",
+                    subtitle = "Search live TV, movies & series",
+                    onClick = { onNavigate(Screen.Search) },
+                    modifier = Modifier.width(330.dp).height(180.dp),
+                )
+            }
+            items(1) {
+                MenuCard(
+                    title = "Favorites",
+                    subtitle = "Your starred channels & videos",
+                    onClick = { onNavigate(Screen.Favorites) },
+                    modifier = Modifier.width(330.dp).height(180.dp),
+                )
+            }
+            items(1) {
+                MenuCard(
+                    title = "Account",
+                    subtitle = "Add & switch accounts",
+                    onClick = { onNavigate(Screen.Account) },
+                    modifier = Modifier.width(330.dp).height(180.dp),
+                )
+            }
+            items(1) {
+                MenuCard(
+                    title = "Settings",
+                    subtitle = "App settings",
+                    onClick = { onNavigate(Screen.Settings) },
+                    modifier = Modifier.width(330.dp).height(180.dp),
+                )
+            }
+            items(1) {
+                MenuCard(
                     title = "Log out",
                     subtitle = "Switch account",
                     onClick = onLogout,
