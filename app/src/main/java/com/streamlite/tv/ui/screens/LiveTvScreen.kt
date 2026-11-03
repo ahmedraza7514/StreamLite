@@ -1,6 +1,7 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -366,11 +367,18 @@ private fun SidebarCategoryRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp),
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(10.dp),
+            ),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) SlAccent else Color.Transparent,
@@ -465,6 +473,7 @@ private fun ChannelGridCard(
     item: ChannelItem,
     onPlay: () -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Card(
         onClick = onPlay,
         shape = RoundedCornerShape(12.dp),
@@ -472,6 +481,13 @@ private fun ChannelGridCard(
             containerColor = Color(0xFF1A1A1A),
             contentColor = Color.White,
         ),
+        modifier = Modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .border(
+                width = if (isFocused) 3.dp else 0.dp,
+                color = if (isFocused) SlAccent else Color.Transparent,
+                shape = RoundedCornerShape(12.dp),
+            ),
     ) {
         Column(
             modifier = Modifier
