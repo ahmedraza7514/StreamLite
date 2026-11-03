@@ -1,21 +1,31 @@
 package com.streamlite.tv.ui.screens
 
 // ============================================================================
-// DRAFT — prepared 2026-11-02 morning for Ahmed Bhai's XCIPTV-style player bar
-// (consolidated list item 1, deferred from 2026-11-01 night).
+// XCIPTV-style custom player bar (built 2026-11-02, refined 2026-11-03).
 //
 // XCIPTV source reviewed (~/workspace/xciptv-src):
 //  - player = Media3 PlayerView with use_controller="true"
 //  - 5 zoom modes in PlayerSettingsActivity (exo: best fit / fixed height /
 //    fixed width / fill / zoom; vlc: best fit / 16:9 / 4:3 / original / fill)
 //  - custom title + ImageButton overlays auto-hiding with the controller
-// This draft mirrors that pattern in Compose: the native ExoPlayer
-// controller is OFF and the whole playtime bar (thumbnail + title +
-// transport + scrubber + ZOOM/AUDIO/SUBS/VOL) is one custom Compose bar
-// that auto-hides after 3s, exactly like XCIPTV.
+// This mirrors that pattern in Compose: the native ExoPlayer controller is
+// OFF and the whole playtime bar (thumbnail + title + transport + scrubber +
+// ZOOM/AUDIO/SUBS/VOL/FAV) is one custom Compose bar that auto-hides after
+// 3s, exactly like XCIPTV.
+//
+// 2026-11-03 refinements (Ahmed Bhai's annotated screenshots):
+//  - Transport buttons are BIG, solid BLACK, with WHITE vector icons
+//    (guaranteed white on every device — emojis rendered orange before).
+//  - ZOOM / AUDIO / SUBS / VOL are black buttons with WHITE text labels.
+//  - LIVE channels get prev/next CHANNEL buttons PLUS the seek buttons;
+//    VOD keeps seek only.
+//  - Star button toggles the favorite for the currently playing item.
+//  - Remote-first: any D-pad keypress shows the bar; focus lands on
+//    play/pause; every button shows a white focus border.
 // ============================================================================
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -32,11 +42,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,12 +66,18 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,25 +96,31 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import com.streamlite.tv.data.FavItem
+import com.streamlite.tv.data.FavStore
 import com.streamlite.tv.player.PlayerFactory
 import com.streamlite.tv.ui.PlayerItem
 import com.streamlite.tv.ui.theme.SlAccent
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Full-screen playback with a custom XCIPTV-style controller.
  *
  * The native ExoPlayer controller is OFF — the playtime bar is built in
  * Compose: [thumbnail] + title on the left, a playtime scrubber, and all
- * controls (rewind / play-pause / forward / ZOOM / AUDIO / SUBS / VOL)
- * INSIDE the bar. The bar auto-hides after 3s; tap the video to show it.
+ * controls INSIDE the bar. The bar auto-hides after 3s; tap the video (or
+ * press any remote key) to show it.
  *
  * The player is built by [PlayerFactory] with the slow-network tuning
- * (large buffer, hardware decoding, 720p start cap). If an HLS (.m3u8)
- * stream fails, we retry once over plain MPEG-TS (.ts).
+ * (buffer level from Settings, hardware decoding, 720p start cap). If an
+ * HLS (.m3u8) stream fails, we retry once over plain MPEG-TS (.ts).
  *
  * [playlist] + [startIndex]: when a queue is supplied, the player's
- * Next/Previous buttons jump between channels instead of doing nothing.
+ * Next/Previous channel buttons jump between channels.
+ * [isLive]: live channels show prev/next CHANNEL buttons alongside the
+ * seek buttons; VOD shows seek only.
+ * [kind]: "live" | "vod" | "episode" — stored with the favorite entry.
  * [thumb]: logo/poster URL shown as the title thumbnail in the bar
  * (falls back to a letter tile when empty).
  */
@@ -100,8 +132,11 @@ fun PlayerScreen(
     startIndex: Int = 0,
     info: String = "",
     thumb: String = "",
+    isLive: Boolean = false,
+    kind: String = "live",
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val triedTsFallback = remember { mutableStateOf(false) }
 
     // XCIPTV-style zoom menu — all 5 modes actually change the picture
@@ -131,6 +166,10 @@ fun PlayerScreen(
     // Snapshot of current tracks for the dialogs (refreshed when opened)
     var trackSnapshot by remember { mutableStateOf<Tracks?>(null) }
 
+    // Favorite star
+    var isFav by remember { mutableStateOf(false) }
+    LaunchedEffect(url) { isFav = FavStore.isFav(context, url) }
+
     // Custom controller state
     var controlsVisible by remember { mutableStateOf(true) }
     var touchTick by remember { mutableIntStateOf(0) }
@@ -142,6 +181,14 @@ fun PlayerScreen(
     var sliderDragging by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableStateOf(0f) } // 0..1 while dragging
 
+    // Remote-first: focus lands on play/pause whenever the bar appears
+    val playPauseReq = remember { FocusRequester() }
+    LaunchedEffect(controlsVisible) {
+        if (controlsVisible) {
+            try { playPauseReq.requestFocus() } catch (_: Exception) { /* no-op */ }
+        }
+    }
+
     fun applyZoom(idx: Int) {
         zoomIdx = idx
         val mode = zoomModes[idx]
@@ -149,7 +196,7 @@ fun PlayerScreen(
         showZoomMenu = false
     }
 
-    /** Any tap on video or control resets the 3s auto-hide timer. */
+    /** Any tap on video, or any remote keypress, resets the 3s auto-hide timer. */
     fun poke() {
         controlsVisible = true
         touchTick++
@@ -237,7 +284,13 @@ fun PlayerScreen(
 
     val hasDuration = durationMs > 0
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            // Remote-first: any D-pad keypress brings the bar back up
+            .onKeyEvent { poke(); false },
+    ) {
         val currentAspect = zoomModes[zoomIdx].aspect
         val playerModifier = if (currentAspect != null) {
             Modifier
@@ -384,34 +437,74 @@ fun PlayerScreen(
 
                     Spacer(Modifier.height(4.dp))
 
-                    // Row 3: all controls inside the playtime bar
+                    // Row 3: all controls inside the playtime bar.
+                    // LIVE: prev/next CHANNEL + seek. VOD: seek only.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Rewind 10s
-                        BarButton("⏪", onClick = {
-                            player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
-                            poke()
-                        })
-                        // Play / pause
-                        BarButton(if (isPlaying) "⏸" else "▶", onClick = {
-                            if (isPlaying) player.pause() else player.play()
-                            poke()
-                        })
-                        // Forward 10s
-                        BarButton("⏩", onClick = {
-                            val target = player.currentPosition + 10_000
-                            player.seekTo(
-                                if (hasDuration) target.coerceAtMost(durationMs) else target
+                        // Previous channel (live only)
+                        if (isLive) {
+                            TransportButton(
+                                icon = Icons.Filled.SkipPrevious,
+                                contentDesc = "Previous channel",
+                                onClick = {
+                                    if (player.hasPreviousMediaItem()) {
+                                        player.seekToPreviousMediaItem()
+                                    }
+                                    poke()
+                                },
                             )
-                            poke()
-                        })
+                        }
+                        // Rewind 10s
+                        TransportButton(
+                            icon = Icons.Filled.FastRewind,
+                            contentDesc = "Back 10 seconds",
+                            onClick = {
+                                player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
+                                poke()
+                            },
+                        )
+                        // Play / pause (remote focus lands here)
+                        TransportButton(
+                            icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDesc = if (isPlaying) "Pause" else "Play",
+                            focusRequester = playPauseReq,
+                            onClick = {
+                                if (isPlaying) player.pause() else player.play()
+                                poke()
+                            },
+                        )
+                        // Forward 10s
+                        TransportButton(
+                            icon = Icons.Filled.FastForward,
+                            contentDesc = "Forward 10 seconds",
+                            onClick = {
+                                val target = player.currentPosition + 10_000
+                                player.seekTo(
+                                    if (hasDuration) target.coerceAtMost(durationMs) else target
+                                )
+                                poke()
+                            },
+                        )
+                        // Next channel (live only)
+                        if (isLive) {
+                            TransportButton(
+                                icon = Icons.Filled.SkipNext,
+                                contentDesc = "Next channel",
+                                onClick = {
+                                    if (player.hasNextMediaItem()) {
+                                        player.seekToNextMediaItem()
+                                    }
+                                    poke()
+                                },
+                            )
+                        }
 
                         // ZOOM -> 5-option menu (XCIPTV modes)
                         Box {
-                            BarButton("ZOOM", onClick = {
+                            LabelButton("ZOOM", onClick = {
                                 showZoomMenu = true
                                 poke()
                             })
@@ -436,22 +529,37 @@ fun PlayerScreen(
                         }
 
                         // AUDIO tracks
-                        BarButton("AUDIO", onClick = {
+                        LabelButton("AUDIO", onClick = {
                             trackSnapshot = player.currentTracks
                             showAudioDialog = true
                             poke()
                         })
                         // SUBS / CC
-                        BarButton("SUBS", onClick = {
+                        LabelButton("SUBS", onClick = {
                             trackSnapshot = player.currentTracks
                             showSubsDialog = true
                             poke()
                         })
                         // VOL + brightness panel
-                        BarButton("VOL", onClick = {
+                        LabelButton("VOL", onClick = {
                             showVbPanel = !showVbPanel
                             poke()
                         })
+                        // Favorite star
+                        TransportButton(
+                            icon = if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
+                            contentDesc = if (isFav) "Remove favorite" else "Add favorite",
+                            tint = if (isFav) SlAccent else Color.White,
+                            onClick = {
+                                scope.launch {
+                                    isFav = FavStore.toggle(
+                                        context,
+                                        FavItem(url, currentTitle, kind, thumb),
+                                    )
+                                }
+                                poke()
+                            },
+                        )
 
                         // Volume & brightness sliders panel
                         if (showVbPanel) {
@@ -540,22 +648,77 @@ fun PlayerScreen(
     }
 }
 
-/** Small text button used inside the playtime bar. */
+/**
+ * Big BLACK button with a WHITE vector icon — the transport controls
+ * (prev / rewind / play-pause / forward / next / favorite).
+ * Vector icons stay white on every device (emojis rendered orange before).
+ * Shows a white border when D-pad focused (remote-first).
+ */
 @Composable
-private fun BarButton(label: String, onClick: () -> Unit) {
+private fun TransportButton(
+    icon: ImageVector,
+    contentDesc: String,
+    onClick: () -> Unit,
+    tint: Color = Color.White,
+    focusRequester: FocusRequester? = null,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(14.dp)
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xAA000000),
+            containerColor = Color.Black,
             contentColor = Color.White,
         ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isFocused) 2.dp else 1.dp,
+            color = if (isFocused) Color.White else Color(0xFF333333),
+        ),
+        modifier = Modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.padding(12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDesc,
+                tint = tint,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+    }
+}
+
+/**
+ * BLACK button with a WHITE text label — ZOOM / AUDIO / SUBS / VOL.
+ * Shows a white border when D-pad focused (remote-first).
+ */
+@Composable
+private fun LabelButton(label: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(12.dp)
+    Card(
+        onClick = onClick,
+        shape = shape,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Black,
+            contentColor = Color.White,
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isFocused) 2.dp else 1.dp,
+            color = if (isFocused) Color.White else Color(0xFF333333),
+        ),
+        modifier = Modifier.onFocusChanged { isFocused = it.isFocused },
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
