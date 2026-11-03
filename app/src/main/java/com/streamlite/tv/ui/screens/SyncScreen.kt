@@ -212,12 +212,31 @@ fun SyncScreen(
         }
 
         Spacer(Modifier.weight(1f))
-        Text(
-            "Developed By: Ahmed Bukhari +92 332 0313333",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(bottom = 24.dp),
-        )
+        ) {
+            Text(
+                "Developed by:",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "Ahmed Bukhari",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "0332 031 3333",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
