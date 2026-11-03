@@ -13,25 +13,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +50,7 @@ import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.XtreamClient
+import com.streamlite.tv.player.PlayerFactory
 import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.ui.theme.SlBackground
 import com.streamlite.tv.ui.theme.SlText
@@ -52,7 +58,13 @@ import com.streamlite.tv.ui.theme.SlTextDim
 
 /**
  * 4-Screen multiview: pick 4 live channels, watch them all at once in a 2x2 grid.
- * Tap a quadrant to hear its audio (others muted).
+ *
+ * 2026-11-03 (Ahmed Bhai's annotated screenshot):
+ * - Tap a quadrant -> pauses/plays THAT quadrant independently.
+ * - Speaker icon on the side of each quadrant -> mute/unmute (the audible
+ *   quadrant switches here too; only one quadrant has audio at a time).
+ * - Players are built by PlayerFactory (tuned buffers + 720p cap) so the
+ *   2GB TV box doesn't choke on 4 simultaneous streams.
  */
 @Composable
 fun MultiViewScreen(session: LoginSession) {
@@ -179,10 +191,11 @@ private fun ChannelPicker(
 private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val context = LocalContext.current
     val client = remember { XtreamClient(session.server, session.username, session.password) }
-    // One ExoPlayer per quadrant
+    // One tuned player per quadrant (PlayerFactory: small buffers + 720p cap
+    // so 4 streams don't OOM the 2GB TV box)
     val players = remember {
         List(4) { idx ->
-            ExoPlayer.Builder(context).build().apply {
+            PlayerFactory.create(context).apply {
                 val ch = channels.getOrNull(idx)
                 if (ch != null) {
                     val url = client.liveHlsUrl(ch.streamId)
@@ -190,16 +203,27 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // Only first quadrant has audio initially
+                // Only the first quadrant is audible initially
                 volume = if (idx == 0) 1f else 0f
             }
         }
     }
-    var activeIdx by remember { mutableStateOf(0) }
+    // Which quadrant has audio (null = all muted). Only one at a time.
+    var audibleIdx by remember { mutableStateOf<Int?>(0) }
+    // Per-quadrant pause state (independent for each screen)
+    val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
-    // Update volumes when active quadrant changes
-    players.forEachIndexed { idx, player ->
-        player.volume = if (idx == activeIdx) 1f else 0f
+    fun togglePause(idx: Int) {
+        val p = players[idx]
+        p.playWhenReady = !p.playWhenReady
+        pausedStates[idx].value = !p.playWhenReady
+    }
+
+    fun toggleMute(idx: Int) {
+        audibleIdx = if (audibleIdx == idx) null else idx
+        players.forEachIndexed { i, p ->
+            p.volume = if (i == audibleIdx) 1f else 0f
+        }
     }
 
     DisposableEffect(Unit) {
@@ -214,15 +238,19 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[0],
                 title = channels.getOrNull(0)?.name ?: "",
-                isActive = activeIdx == 0,
-                onTap = { activeIdx = 0 },
+                isAudible = audibleIdx == 0,
+                isPaused = pausedStates[0].value,
+                onTap = { togglePause(0) },
+                onToggleMute = { toggleMute(0) },
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
                 player = players[1],
                 title = channels.getOrNull(1)?.name ?: "",
-                isActive = activeIdx == 1,
-                onTap = { activeIdx = 1 },
+                isAudible = audibleIdx == 1,
+                isPaused = pausedStates[1].value,
+                onTap = { togglePause(1) },
+                onToggleMute = { toggleMute(1) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -231,15 +259,19 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[2],
                 title = channels.getOrNull(2)?.name ?: "",
-                isActive = activeIdx == 2,
-                onTap = { activeIdx = 2 },
+                isAudible = audibleIdx == 2,
+                isPaused = pausedStates[2].value,
+                onTap = { togglePause(2) },
+                onToggleMute = { toggleMute(2) },
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
                 player = players[3],
                 title = channels.getOrNull(3)?.name ?: "",
-                isActive = activeIdx == 3,
-                onTap = { activeIdx = 3 },
+                isAudible = audibleIdx == 3,
+                isPaused = pausedStates[3].value,
+                onTap = { togglePause(3) },
+                onToggleMute = { toggleMute(3) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -249,7 +281,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Tap a screen to hear its audio  •  🔊 = active",
+                "Tap a screen to pause it  •  tap the speaker icon to hear its audio",
                 fontSize = 13.sp,
                 color = Color.White,
             )
@@ -261,19 +293,32 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
 private fun QuadPlayer(
     player: ExoPlayer,
     title: String,
-    isActive: Boolean,
+    isAudible: Boolean,
+    isPaused: Boolean,
     onTap: () -> Unit,
+    onToggleMute: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var quadFocused by remember { mutableStateOf(false) }
+    var speakerFocused by remember { mutableStateOf(false) }
     Box(
         modifier = modifier
             .fillMaxSize()
             .padding(2.dp)
             .border(
-                width = if (isActive) 3.dp else 1.dp,
-                color = if (isActive) SlAccent else Color(0xFF333333),
+                width = when {
+                    isAudible -> 3.dp
+                    quadFocused -> 2.dp
+                    else -> 1.dp
+                },
+                color = when {
+                    isAudible -> SlAccent
+                    quadFocused -> Color.White
+                    else -> Color(0xFF333333)
+                },
                 shape = RoundedCornerShape(4.dp),
             )
+            .onFocusChanged { quadFocused = it.isFocused }
             .clickable { onTap() },
     ) {
         AndroidView(
@@ -291,7 +336,24 @@ private fun QuadPlayer(
             },
             modifier = Modifier.fillMaxSize(),
         )
-        // Title overlay
+        // Paused indicator (white vector icon — always visible, every device)
+        if (isPaused) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(Color(0xAA000000), RoundedCornerShape(16.dp))
+                    .padding(14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Pause,
+                    contentDescription = "Paused",
+                    tint = Color.White,
+                    modifier = Modifier.size(44.dp),
+                )
+            }
+        }
+        // Title overlay (top-start)
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -300,11 +362,40 @@ private fun QuadPlayer(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             Text(
-                (if (isActive) "🔊 " else "") + title,
+                (if (isAudible) "🔊 " else "") + title,
                 fontSize = 12.sp,
                 color = Color.White,
                 maxLines = 1,
             )
+        }
+        // Speaker mute/unmute button (top-end, black button, white icon)
+        Card(
+            onClick = onToggleMute,
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (speakerFocused) 2.dp else 1.dp,
+                color = if (speakerFocused) Color.White else Color(0xFF555555),
+            ),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(6.dp)
+                .onFocusChanged { speakerFocused = it.isFocused },
+        ) {
+            Box(
+                modifier = Modifier.padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (isAudible) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                    contentDescription = if (isAudible) "Mute" else "Unmute",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
     }
 }
