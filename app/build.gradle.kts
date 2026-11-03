@@ -48,7 +48,7 @@ dependencies {
     androidTestImplementation(composeBom)
     implementation("androidx.compose.material3:material3")
     // Material icons (white vector transport icons for the player bar)
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.2")
