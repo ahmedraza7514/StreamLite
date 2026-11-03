@@ -24,6 +24,12 @@ object DataRepository {
     var vodTotalCount: Int = 0
     var seriesTotalCount: Int = 0
 
+    // Per-category item counts, captured during sync (zero extra network —
+    // the per-category sizes are already fetched for the totals above).
+    // VodScreen / SeriesScreen sidebars read these; null = not synced yet.
+    var vodCatCounts: Map<String, Int>? = null
+    var seriesCatCounts: Map<String, Int>? = null
+
     var isSynced = false
 
     suspend fun syncAll(
@@ -40,35 +46,41 @@ object DataRepository {
 
         // VOD — categories only (streams load per-category on demand to avoid OOM on TV boxes)
         // Plus parallel per-category COUNT so sync screen can show total videos
+        // (the per-category map is also kept for the VodScreen sidebar counts)
         onProgress("VOD")
         val vc = withContext(Dispatchers.IO) { client.vodCategories() }
         vodCategories = vc
-        vodTotalCount = withContext(Dispatchers.IO) {
+        val vodCounts = withContext(Dispatchers.IO) {
             val sem = Semaphore(12)
             vc.map { cat ->
                 async {
                     sem.withPermit {
-                        try { client.vodStreams(cat.id).size } catch (e: Exception) { 0 }
+                        cat.id to try { client.vodStreams(cat.id).size } catch (e: Exception) { 0 }
                     }
                 }
-            }.awaitAll().sum()
+            }.awaitAll().toMap()
         }
+        vodCatCounts = vodCounts
+        vodTotalCount = vodCounts.values.sum()
 
         // SERIES — categories only (series load per-category on demand to avoid OOM on TV boxes)
         // Plus parallel per-category COUNT so sync screen can show total series
+        // (the per-category map is also kept for the SeriesScreen sidebar counts)
         onProgress("SERIES")
         val sc = withContext(Dispatchers.IO) { client.seriesCategories() }
         seriesCategories = sc
-        seriesTotalCount = withContext(Dispatchers.IO) {
+        val seriesCounts = withContext(Dispatchers.IO) {
             val sem = Semaphore(12)
             sc.map { cat ->
                 async {
                     sem.withPermit {
-                        try { client.series(cat.id).size } catch (e: Exception) { 0 }
+                        cat.id to try { client.series(cat.id).size } catch (e: Exception) { 0 }
                     }
                 }
-            }.awaitAll().sum()
+            }.awaitAll().toMap()
         }
+        seriesCatCounts = seriesCounts
+        seriesTotalCount = seriesCounts.values.sum()
 
         // GUIDE — EPG is now OPTIONAL (user taps the GUIDE box to load it).
         // Skipped during auto-sync so the app opens fast every time.
@@ -85,6 +97,8 @@ object DataRepository {
         vodStreams = null
         seriesCategories = null
         seriesList = null
+        vodCatCounts = null
+        seriesCatCounts = null
         isSynced = false
         EpgStore.clear()
     }
