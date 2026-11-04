@@ -1,5 +1,6 @@
 package com.streamlite.tv.ui.screens
 
+import androidx.activity.compose.BackHandler
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -71,9 +73,16 @@ import kotlinx.coroutines.withContext
  *   2GB TV box doesn't choke on 4 simultaneous streams.
  */
 @Composable
-fun MultiViewScreen(session: LoginSession) {
+fun MultiViewScreen(
+    session: LoginSession,
+    // 2026-11-04 (Batch 4, Point 9): back from 4-screen returns to the last
+    // screen/category — the app must never fully close from here.
+    onBack: () -> Unit = {},
+) {
     var selected by remember { mutableStateOf<List<LiveStream>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
+
+    BackHandler { onBack() }
 
     if (!started) {
         ChannelPicker(
@@ -329,19 +338,22 @@ private fun QuadPlayer(
 ) {
     var quadFocused by remember { mutableStateOf(false) }
     var speakerFocused by remember { mutableStateOf(false) }
+    var playBtnFocused by remember { mutableStateOf(false) }
     Box(
         modifier = modifier
             .fillMaxSize()
             .padding(2.dp)
             .border(
+                // 2026-11-04 (Batch 4, Point 6+10): WHITE 3dp border where the
+                // D-pad cursor goes — must be clearly visible on the TV box.
                 width = when {
+                    quadFocused -> 3.dp
                     isAudible -> 3.dp
-                    quadFocused -> 2.dp
                     else -> 1.dp
                 },
                 color = when {
-                    isAudible -> SlAccent
                     quadFocused -> Color.White
+                    isAudible -> SlAccent
                     else -> Color(0xFF333333)
                 },
                 shape = RoundedCornerShape(4.dp),
@@ -423,6 +435,39 @@ private fun QuadPlayer(
                     tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
+            }
+        }
+        // 2026-11-04 (Batch 4, Point 10): play/pause button, visible when the
+        // quadrant has D-pad focus — D-pad OK here toggles play/pause for
+        // that quadrant (same as OK on the quadrant itself).
+        if (quadFocused) {
+            Card(
+                onClick = onTap,
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Black,
+                    contentColor = Color.White,
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (playBtnFocused) 2.dp else 1.dp,
+                    color = if (playBtnFocused) Color.White else Color(0xFF555555),
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 52.dp)
+                    .onFocusChanged { playBtnFocused = it.isFocused },
+            ) {
+                Box(
+                    modifier = Modifier.padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                        contentDescription = if (isPaused) "Play" else "Pause",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
     }
