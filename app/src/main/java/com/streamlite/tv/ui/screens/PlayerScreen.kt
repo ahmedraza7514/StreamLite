@@ -33,6 +33,7 @@ package com.streamlite.tv.ui.screens
 //    which killed the app on back-press/close (white error dialog).
 // ============================================================================
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -145,7 +146,12 @@ fun PlayerScreen(
     thumb: String = "",
     isLive: Boolean = false,
     kind: String = "live",
+    onBack: () -> Unit = {},
 ) {
+    // 2026-11-04 (Batch 3, Point 2): Back inside the player pops to the
+    // previous screen — never kills the app.
+    BackHandler { onBack() }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val triedTsFallback = remember { mutableStateOf(false) }
@@ -161,7 +167,7 @@ fun PlayerScreen(
             ZoomMode("Zoom: Fill", null, AspectRatioFrameLayout.RESIZE_MODE_FILL),
         )
     }
-    var zoomIdx by remember { mutableIntStateOf(0) }
+    var zoomIdx by remember { mutableIntStateOf(4) } // 2026-11-04 (Batch 3, Point 5): default = Zoom: Fill
     var showZoomMenu by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
 
@@ -708,7 +714,8 @@ private fun TransportButton(
     tint: Color = Color.White,
     focusRequester: FocusRequester? = null,
 ) {
-    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright accent border + lighter bg.
+    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright border + lighter bg.
+    // 2026-11-04 (Batch 4, Point 6): border changed from accent blue to WHITE (user: cursor not visible).
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.15f else 1f, label = "transportScale")
     val shape = RoundedCornerShape(12.dp)
@@ -721,7 +728,7 @@ private fun TransportButton(
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
-            color = if (isFocused) Color(0xFF00C2FF) else Color(0xFF333333),
+            color = if (isFocused) Color.White else Color(0xFF333333),
         ),
         modifier = Modifier
             .onFocusChanged { isFocused = it.isFocused }
@@ -748,7 +755,8 @@ private fun TransportButton(
  */
 @Composable
 private fun LabelButton(label: String, onClick: () -> Unit) {
-    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright accent border + lighter bg.
+    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright border + lighter bg.
+    // 2026-11-04 (Batch 4, Point 6): border changed from accent blue to WHITE (user: cursor not visible).
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.12f else 1f, label = "labelBtnScale")
     val shape = RoundedCornerShape(10.dp)
@@ -761,7 +769,7 @@ private fun LabelButton(label: String, onClick: () -> Unit) {
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isFocused) 3.dp else 1.dp,
-            color = if (isFocused) Color(0xFF00C2FF) else Color(0xFF333333),
+            color = if (isFocused) Color.White else Color(0xFF333333),
         ),
         modifier = Modifier
             .onFocusChanged { isFocused = it.isFocused }
