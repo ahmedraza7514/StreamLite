@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,12 +50,15 @@ import androidx.media3.ui.PlayerView
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
+import com.streamlite.tv.data.LoginType
 import com.streamlite.tv.data.XtreamClient
 import com.streamlite.tv.player.PlayerFactory
 import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.ui.theme.SlBackground
 import com.streamlite.tv.ui.theme.SlText
 import com.streamlite.tv.ui.theme.SlTextDim
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 4-Screen multiview: pick 4 live channels, watch them all at once in a 2x2 grid.
@@ -98,7 +102,22 @@ private fun ChannelPicker(
     onToggle: (LiveStream) -> Unit,
     onStart: () -> Unit,
 ) {
-    val channels = remember { DataRepository.liveStreams ?: emptyList() }
+    // 2026-11-04 (Batch 2): on the TV box DataRepository.liveStreams can be
+    // null/empty when the picker opens (search found nothing, nothing could
+    // be added). Fall back to a direct Xtream fetch so the picker always has
+    // channels — same bulk call LiveTvScreen uses.
+    var channels by remember { mutableStateOf(DataRepository.liveStreams ?: emptyList()) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        if (channels.isEmpty() && session.type == LoginType.XTREAM) {
+            try {
+                val client = XtreamClient(session.server, session.username, session.password)
+                channels = withContext(Dispatchers.IO) { client.liveStreamsAll() }
+            } catch (e: Exception) {
+                loadError = e.message ?: "Could not load channels."
+            }
+        }
+    }
     var query by remember { mutableStateOf("") }
     val filtered = remember(query, channels) {
         if (query.isBlank()) channels
@@ -136,6 +155,15 @@ private fun ChannelPicker(
             },
         )
         Spacer(Modifier.height(12.dp))
+
+        if (loadError != null && channels.isEmpty()) {
+            Text(
+                loadError!!,
+                fontSize = 14.sp,
+                color = Color(0xFFFF6B6B),
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f),
