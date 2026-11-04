@@ -212,26 +212,13 @@ fun SyncScreen(
         }
 
         Spacer(Modifier.weight(1f))
+        // 2026-11-04 (Batch 2): credit on ONE line (was 3 lines).
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(bottom = 24.dp),
         ) {
             Text(
-                "Developed by:",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                "Ahmed Bukhari",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                "0332 031 3333",
+                "Developed By: Ahmed Bukhari 0332 031 3333",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
