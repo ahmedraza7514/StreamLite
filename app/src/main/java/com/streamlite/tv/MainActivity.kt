@@ -30,8 +30,6 @@ import com.streamlite.tv.data.FavItem
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
 import com.streamlite.tv.data.M3uChannel
-import com.streamlite.tv.data.RecentItem
-import com.streamlite.tv.data.RecentViewsStore
 import com.streamlite.tv.data.SessionManager
 import com.streamlite.tv.data.XtreamClient
 import com.streamlite.tv.ui.PlayerItem
@@ -195,13 +193,12 @@ private fun AppRoot() {
         startIndex: Int = 0,
         info: String = "",
     ) {
-        // Record in recent views (kind guessed from info/url)
+        // 2026-11-04 (Batch 3, Point 3): RecentViewsStore.add removed — "Recent Played" UI deleted.
         val kind = when {
             info.contains("★") || url.contains("/movie/") -> "vod"
             title.contains("—") -> "episode"
             else -> "live"
         }
-        RecentViewsStore.add(RecentItem(url, title, kind, info))
         navStack.add(Screen.Player(url, title, playlist, startIndex, info, isLive = kind == "live", kind = kind))
     }
 
@@ -250,8 +247,18 @@ private fun AppRoot() {
             navStack.add(Screen.SeriesDetail(id, title))
         }, { url, title -> play(url, title) })
         is Screen.SeriesDetail -> SeriesDetailScreen(session!!, s.seriesId, s.title, { url, title -> play(url, title) })
-        is Screen.Player -> PlayerScreen(s.url, s.title, s.playlist, s.startIndex, s.info, isLive = s.isLive, kind = s.kind)
-        is Screen.MultiView -> MultiViewScreen(session!!)
+        is Screen.Player -> PlayerScreen(
+            s.url, s.title, s.playlist, s.startIndex, s.info,
+            isLive = s.isLive, kind = s.kind,
+            // 2026-11-04 (Batch 3, Point 2): back from player pops to previous screen.
+            onBack = { navStack.removeLast() },
+        )
+        is Screen.MultiView -> MultiViewScreen(
+            session!!,
+            // 2026-11-04 (Batch 4, Point 9): back from 4-screen returns to last
+            // screen/category — never closes the whole app.
+            onBack = { navStack.removeLast() },
+        )
         is Screen.Search -> SearchScreen(
             session = session!!,
             m3uChannels = m3uCache.value,
