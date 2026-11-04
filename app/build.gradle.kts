@@ -12,10 +12,12 @@ android {
         applicationId = "com.streamlite.tv"
         minSdk = 23
         targetSdk = 35
-        // 2026-11-04: v2.0 — Batch 2 (10 pts) + Point 11 (focus) + Splash + rename to A.R. Xtream IPTV.
+        // 2026-11-04: v2.4 — Batch 4 (pts 6-11): WHITE focus borders everywhere,
+        // compact home control boxes, "A.R. Xtream IPTV Player" home title,
+        // 4-screen back-nav fix + per-quadrant D-pad play/pause & mute.
         // Rule: bump versionCode + versionName on every build that ships changes.
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 6
+        versionName = "2.4"
     }
 
     buildTypes {
