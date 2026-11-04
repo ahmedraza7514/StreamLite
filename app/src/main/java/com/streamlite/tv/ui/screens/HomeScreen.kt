@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
@@ -57,7 +58,8 @@ fun HomeScreen(
             .background(SlBackground)
             .padding(48.dp),
     ) {
-        Text("StreamLite", style = MaterialTheme.typography.displaySmall, color = SlAccent)
+        // 2026-11-04 (Batch 4, splash note): big branded title after splash (was "StreamLite").
+        Text("A.R. Xtream IPTV Player", style = MaterialTheme.typography.displaySmall, color = SlAccent)
         Text(
             "What do you want to watch?",
             fontSize = 17.sp,
@@ -146,7 +148,9 @@ private fun SmallMenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 2026-11-04 (Point 11): focus must be visible — scale + accent border.
+    // 2026-11-04 (Point 11): focus must be visible — scale + WHITE border.
+    // 2026-11-04 (Batch 4, Point 6): border changed from accent blue to WHITE (user: cursor not visible).
+    // 2026-11-04 (Batch 4, Point 7): compact padding — small control boxes stay small.
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "smallCardScale")
     Card(
@@ -156,7 +160,7 @@ private fun SmallMenuCard(
             .scale(scale)
             .border(
                 width = if (isFocused) 2.dp else 0.dp,
-                color = SlAccent,
+                color = Color.White,
                 shape = RoundedCornerShape(14.dp),
             ),
         colors = CardDefaults.cardColors(
@@ -165,7 +169,7 @@ private fun SmallMenuCard(
         ),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
             Text(title, fontSize = 17.sp, color = SlText)
             Text(
                 subtitle,
