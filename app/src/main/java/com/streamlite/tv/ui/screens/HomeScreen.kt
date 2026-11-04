@@ -1,6 +1,8 @@
 package com.streamlite.tv.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +18,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
@@ -27,6 +35,7 @@ import com.streamlite.tv.ui.Screen
 import com.streamlite.tv.ui.components.MenuCard
 import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.ui.theme.SlBackground
+import com.streamlite.tv.ui.theme.SlCard
 import com.streamlite.tv.ui.theme.SlSurface
 import com.streamlite.tv.ui.theme.SlText
 import com.streamlite.tv.ui.theme.SlTextDim
@@ -137,11 +146,21 @@ private fun SmallMenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 2026-11-04 (Point 11): focus must be visible — scale + accent border.
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "smallCardScale")
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = SlAccent,
+                shape = RoundedCornerShape(14.dp),
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = SlSurface,
+            containerColor = if (isFocused) SlCard else SlSurface,
             contentColor = SlText,
         ),
         shape = RoundedCornerShape(14.dp),
