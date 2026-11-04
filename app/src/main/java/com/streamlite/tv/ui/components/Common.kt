@@ -111,7 +111,8 @@ fun MenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 2026-11-04 (Point 11): D-pad focus MUST be visible — scale up + accent border on focus.
+    // 2026-11-04 (Point 11): D-pad focus MUST be visible — scale up + WHITE border on focus.
+    // 2026-11-04 (Batch 4, Point 6+8): border changed from accent blue to WHITE (user: cursor not visible).
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.06f else 1f, label = "menuCardScale")
     Card(
@@ -121,7 +122,7 @@ fun MenuCard(
             .scale(scale)
             .border(
                 width = if (isFocused) 3.dp else 0.dp,
-                color = SlAccent,
+                color = Color.White,
                 shape = RoundedCornerShape(20.dp),
             ),
         colors = CardDefaults.cardColors(
