@@ -2,6 +2,8 @@ package com.streamlite.tv.ui
 
 /** Simple manual back-stack. D-pad Back pops via BackHandler in MainActivity. */
 sealed class Screen {
+    /** Startup splash video (res/raw/splash.mp4). Shown once per launch. */
+    data object Splash : Screen()
     data object Login : Screen()
     data object Home : Screen()
     /** Re-sync screen. [popAfter] = return to the previous screen instead of Home. */
