@@ -2,6 +2,10 @@ package com.streamlite.tv.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
@@ -43,7 +47,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.DataRepository
-import com.streamlite.tv.data.RecentViewsStore
 import com.streamlite.tv.data.ScrollStateStore
 import com.streamlite.tv.data.VodStream
 import com.streamlite.tv.data.XtreamCategory
@@ -142,18 +145,37 @@ fun VodScreen(
         }
         // RIGHT: content
         Column(modifier = Modifier.weight(1f).fillMaxSize().padding(24.dp)) {
-        // Search + Sort
+        // 2026-11-04 (Batch 3, Point 4): Search is a SMALL icon box next to A-Z.
+        // Click/OK expands it to a full field; X collapses it back.
+        var searchExpanded by remember { mutableStateOf(false) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            BasicTextField(value = searchQuery, onValueChange = { searchQuery = it },
-                modifier = Modifier.weight(1f)
-                    .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                textStyle = TextStyle(color = Color.White, fontSize = 15.sp), singleLine = true,
-                decorationBox = { inner -> Box {
-                    if (searchQuery.isEmpty()) Text("Search movies...", color = Color(0xFF999999), fontSize = 14.sp)
-                    inner() } },
-            )
+            if (searchExpanded) {
+                BasicTextField(value = searchQuery, onValueChange = { searchQuery = it },
+                    modifier = Modifier.weight(1f)
+                        .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    textStyle = TextStyle(color = Color.White, fontSize = 15.sp), singleLine = true,
+                    decorationBox = { inner -> Box {
+                        if (searchQuery.isEmpty()) Text("Search movies...", color = Color(0xFF999999), fontSize = 14.sp)
+                        inner() } },
+                )
+                Card(onClick = { searchExpanded = false; searchQuery = "" },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1E2E), contentColor = SlText)) {
+                    Box(modifier = Modifier.padding(12.dp)) {
+                        Icon(Icons.Filled.Close, contentDescription = "Close search", tint = SlText)
+                    }
+                }
+            } else {
+                Card(onClick = { searchExpanded = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1E2E), contentColor = SlText)) {
+                    Box(modifier = Modifier.padding(12.dp)) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = SlText)
+                    }
+                }
+            }
             Card(onClick = { sortAsc = !sortAsc }, shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1E2E), contentColor = SlText)) {
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -162,41 +184,7 @@ fun VodScreen(
         }
         Spacer(Modifier.height(12.dp))
 
-        // Recent Views
-        val recent = RecentViewsStore.items.filter { it.kind == "vod" }
-        if (recent.isNotEmpty()) {
-            Text(
-                "Recent Played",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.padding(bottom = 12.dp),
-            ) {
-                items(recent, key = { it.url }) { r ->
-                    Card(
-                        onClick = { onPlay(r.url, r.title, r.info) },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1E3A5F),
-                            contentColor = Color.White,
-                        ),
-                    ) {
-                        Text(
-                            r.title,
-                            fontSize = 13.sp,
-                            color = Color.White,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                .widthIn(max = 200.dp),
-                        )
-                    }
-                }
-            }
-        }
+        // 2026-11-04 (Batch 3, Point 3): "Recent Played" section removed per user request.
 
         val mv = movies?.let { list ->
             var result = if (searchQuery.isBlank()) list
