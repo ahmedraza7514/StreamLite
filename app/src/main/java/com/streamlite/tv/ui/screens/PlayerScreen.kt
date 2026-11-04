@@ -22,6 +22,15 @@ package com.streamlite.tv.ui.screens
 //  - Star button toggles the favorite for the currently playing item.
 //  - Remote-first: any D-pad keypress shows the bar; focus lands on
 //    play/pause; every button shows a white focus border.
+//
+// 2026-11-04 (Batch 2, TV-box feedback):
+//  - COMPACT bar: seekbar on TOP, then title+thumbnail on the LEFT and all
+//    transport controls on the RIGHT (XCIPTV VOD-player layout). Channel
+//    name + icon sit BELOW the seekbar (was above). Reduced paddings so the
+//    bar takes less vertical space — more professional.
+//  - CRASH FIX: playtime ticker and player.release() are wrapped in
+//    try/catch — accessing a released player threw IllegalStateException,
+//    which killed the app on back-press/close (white error dialog).
 // ============================================================================
 
 import androidx.compose.foundation.background
@@ -108,9 +117,9 @@ import kotlinx.coroutines.launch
  * Full-screen playback with a custom XCIPTV-style controller.
  *
  * The native ExoPlayer controller is OFF — the playtime bar is built in
- * Compose: [thumbnail] + title on the left, a playtime scrubber, and all
- * controls INSIDE the bar. The bar auto-hides after 3s; tap the video (or
- * press any remote key) to show it.
+ * Compose: seekbar on top, then [thumbnail] + title on the left with all
+ * transport controls on the right. The bar auto-hides after 3s; tap the
+ * video (or press any remote key) to show it.
  *
  * The player is built by [PlayerFactory] with the slow-network tuning
  * (buffer level from Settings, hardware decoding, 720p start cap). If an
@@ -235,8 +244,12 @@ fun PlayerScreen(
         exo
     }
 
+    // CRASH FIX (2026-11-04): release() can throw if the player is already
+    // released or in a bad state — never let it crash the app on back/close.
     DisposableEffect(url) {
-        onDispose { player.release() }
+        onDispose {
+            try { player.release() } catch (_: Exception) { /* already released */ }
+        }
     }
 
     // Listen for playlist index changes to update the bar title
@@ -250,7 +263,7 @@ fun PlayerScreen(
             }
         }
         player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        onDispose { try { player.removeListener(listener) } catch (_: Exception) {} }
     }
 
     // Auto-hide the bar 3s after the last interaction (XCIPTV behaviour)
@@ -259,15 +272,20 @@ fun PlayerScreen(
         controlsVisible = false
     }
 
-    // Playtime ticker (only while the bar is up — saves battery on the box)
+    // Playtime ticker (only while the bar is up — saves battery on the box).
+    // CRASH FIX (2026-11-04): the player may be released while this loop runs
+    // (back-press race) — accessing currentPosition/duration on a released
+    // player throws IllegalStateException and killed the app. Guard it.
     LaunchedEffect(Unit) {
         while (true) {
             if (controlsVisible) {
-                positionMs = player.currentPosition
-                durationMs = player.duration
-                if (!sliderDragging && durationMs > 0) {
-                    sliderValue = (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-                }
+                try {
+                    positionMs = player.currentPosition
+                    durationMs = player.duration
+                    if (!sliderDragging && durationMs > 0) {
+                        sliderValue = (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    }
+                } catch (_: Exception) { /* player released mid-tick */ }
             }
             delay(500)
         }
@@ -324,83 +342,32 @@ fun PlayerScreen(
             )
         }
 
-        // ================= XCIPTV-style playtime bar =================
+        // ================= XCIPTV-style playtime bar (COMPACT, 2026-11-04) =================
+        // Layout: seekbar on TOP, then title+thumbnail on the LEFT with all
+        // transport controls on the RIGHT — matches XCIPTV's VOD player and
+        // puts the channel name/icon BELOW the seekbar (was above). Tighter
+        // paddings keep the bar slim and professional on the TV.
         if (controlsVisible) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
                     .zIndex(1f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xDD000000),
                     contentColor = Color.White,
                 ),
             ) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    // Row 1: thumbnail + title (+ info)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (thumb.isNotEmpty()) {
-                            AsyncImage(
-                                model = thumb,
-                                contentDescription = null,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF1E3A5F)),
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(SlAccent),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    currentTitle.firstOrNull()?.uppercase() ?: "•",
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black,
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                currentTitle,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (info.isNotEmpty()) {
-                                Text(
-                                    info,
-                                    fontSize = 13.sp,
-                                    color = Color(0xFFCCCCCC),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Row 2: playtime scrubber (or LIVE badge for live streams)
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    // Row 1: playtime scrubber (or LIVE badge for live streams)
                     if (hasDuration) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(fmt(positionMs), fontSize = 13.sp, color = Color.White)
+                            Text(fmt(positionMs), fontSize = 12.sp, color = Color.White)
                             Slider(
                                 value = sliderValue,
                                 onValueChange = {
@@ -408,13 +375,15 @@ fun PlayerScreen(
                                     sliderValue = it
                                 },
                                 onValueChangeFinished = {
-                                    player.seekTo((sliderValue * durationMs).toLong())
+                                    try {
+                                        player.seekTo((sliderValue * durationMs).toLong())
+                                    } catch (_: Exception) {}
                                     sliderDragging = false
                                     poke()
                                 },
                                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             )
-                            Text(fmt(durationMs), fontSize = 13.sp, color = Color.White)
+                            Text(fmt(durationMs), fontSize = 12.sp, color = Color.White)
                         }
                     } else {
                         Row(modifier = Modifier.fillMaxWidth()) {
@@ -427,9 +396,9 @@ fun PlayerScreen(
                             ) {
                                 Text(
                                     "LIVE",
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                                 )
                             }
                         }
@@ -437,164 +406,233 @@ fun PlayerScreen(
 
                     Spacer(Modifier.height(4.dp))
 
-                    // Row 3: all controls inside the playtime bar.
+                    // Row 2: title+thumbnail LEFT, all controls RIGHT.
                     // LIVE: prev/next CHANNEL + seek. VOD: seek only.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Previous channel (live only)
-                        if (isLive) {
-                            TransportButton(
-                                icon = Icons.Filled.SkipPrevious,
-                                contentDesc = "Previous channel",
-                                onClick = {
-                                    if (player.hasPreviousMediaItem()) {
-                                        player.seekToPreviousMediaItem()
-                                    }
-                                    poke()
-                                },
-                            )
-                        }
-                        // Rewind 10s
-                        TransportButton(
-                            icon = Icons.Filled.FastRewind,
-                            contentDesc = "Back 10 seconds",
-                            onClick = {
-                                player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
-                                poke()
-                            },
-                        )
-                        // Play / pause (remote focus lands here)
-                        TransportButton(
-                            icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDesc = if (isPlaying) "Pause" else "Play",
-                            focusRequester = playPauseReq,
-                            onClick = {
-                                if (isPlaying) player.pause() else player.play()
-                                poke()
-                            },
-                        )
-                        // Forward 10s
-                        TransportButton(
-                            icon = Icons.Filled.FastForward,
-                            contentDesc = "Forward 10 seconds",
-                            onClick = {
-                                val target = player.currentPosition + 10_000
-                                player.seekTo(
-                                    if (hasDuration) target.coerceAtMost(durationMs) else target
+                        // LEFT: thumbnail + title (below the seekbar)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            if (thumb.isNotEmpty()) {
+                                AsyncImage(
+                                    model = thumb,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1E3A5F)),
                                 )
-                                poke()
-                            },
-                        )
-                        // Next channel (live only)
-                        if (isLive) {
-                            TransportButton(
-                                icon = Icons.Filled.SkipNext,
-                                contentDesc = "Next channel",
-                                onClick = {
-                                    if (player.hasNextMediaItem()) {
-                                        player.seekToNextMediaItem()
-                                    }
-                                    poke()
-                                },
-                            )
-                        }
-
-                        // ZOOM -> 5-option menu (XCIPTV modes)
-                        Box {
-                            LabelButton("ZOOM", onClick = {
-                                showZoomMenu = true
-                                poke()
-                            })
-                            DropdownMenu(
-                                expanded = showZoomMenu,
-                                onDismissRequest = { showZoomMenu = false },
-                                modifier = Modifier.background(Color.Black),
-                            ) {
-                                zoomModes.forEachIndexed { idx, mode ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                mode.label,
-                                                color = if (idx == zoomIdx) SlAccent else Color.White,
-                                                fontSize = 15.sp,
-                                            )
-                                        },
-                                        onClick = { applyZoom(idx); poke() },
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(SlAccent),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        currentTitle.firstOrNull()?.uppercase() ?: "•",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    currentTitle,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (info.isNotEmpty()) {
+                                    Text(
+                                        info,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFCCCCCC),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
                         }
 
-                        // AUDIO tracks
-                        LabelButton("AUDIO", onClick = {
-                            trackSnapshot = player.currentTracks
-                            showAudioDialog = true
-                            poke()
-                        })
-                        // SUBS / CC
-                        LabelButton("SUBS", onClick = {
-                            trackSnapshot = player.currentTracks
-                            showSubsDialog = true
-                            poke()
-                        })
-                        // VOL + brightness panel
-                        LabelButton("VOL", onClick = {
-                            showVbPanel = !showVbPanel
-                            poke()
-                        })
-                        // Favorite star
-                        TransportButton(
-                            icon = if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
-                            contentDesc = if (isFav) "Remove favorite" else "Add favorite",
-                            tint = if (isFav) SlAccent else Color.White,
-                            onClick = {
-                                scope.launch {
-                                    isFav = FavStore.toggle(
-                                        context,
-                                        FavItem(url, currentTitle, kind, thumb),
-                                    )
-                                }
-                                poke()
-                            },
-                        )
-
-                        // Volume & brightness sliders panel
-                        if (showVbPanel) {
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xDD000000),
-                                    contentColor = Color.White,
-                                ),
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp).width(200.dp)) {
-                                    Text("Volume", fontSize = 14.sp, color = Color.White)
-                                    Slider(
-                                        value = volume,
-                                        onValueChange = {
-                                            volume = it
-                                            player.volume = it
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Brightness", fontSize = 14.sp, color = Color.White)
-                                    Slider(
-                                        value = if (brightness < 0) 0.5f else brightness,
-                                        onValueChange = {
-                                            brightness = it
-                                            activity?.window?.let { win ->
-                                                val lp = win.attributes
-                                                lp.screenBrightness = it
-                                                win.attributes = lp
+                        // RIGHT: transport + label buttons (compact)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Previous channel (live only)
+                            if (isLive) {
+                                TransportButton(
+                                    icon = Icons.Filled.SkipPrevious,
+                                    contentDesc = "Previous channel",
+                                    onClick = {
+                                        try {
+                                            if (player.hasPreviousMediaItem()) {
+                                                player.seekToPreviousMediaItem()
                                             }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
+                                        } catch (_: Exception) {}
+                                        poke()
+                                    },
+                                )
+                            }
+                            // Rewind 10s
+                            TransportButton(
+                                icon = Icons.Filled.FastRewind,
+                                contentDesc = "Back 10 seconds",
+                                onClick = {
+                                    try {
+                                        player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
+                                    } catch (_: Exception) {}
+                                    poke()
+                                },
+                            )
+                            // Play / pause (remote focus lands here)
+                            TransportButton(
+                                icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDesc = if (isPlaying) "Pause" else "Play",
+                                focusRequester = playPauseReq,
+                                onClick = {
+                                    try {
+                                        if (isPlaying) player.pause() else player.play()
+                                    } catch (_: Exception) {}
+                                    poke()
+                                },
+                            )
+                            // Forward 10s
+                            TransportButton(
+                                icon = Icons.Filled.FastForward,
+                                contentDesc = "Forward 10 seconds",
+                                onClick = {
+                                    try {
+                                        val target = player.currentPosition + 10_000
+                                        player.seekTo(
+                                            if (hasDuration) target.coerceAtMost(durationMs) else target
+                                        )
+                                    } catch (_: Exception) {}
+                                    poke()
+                                },
+                            )
+                            // Next channel (live only)
+                            if (isLive) {
+                                TransportButton(
+                                    icon = Icons.Filled.SkipNext,
+                                    contentDesc = "Next channel",
+                                    onClick = {
+                                        try {
+                                            if (player.hasNextMediaItem()) {
+                                                player.seekToNextMediaItem()
+                                            }
+                                        } catch (_: Exception) {}
+                                        poke()
+                                    },
+                                )
+                            }
+
+                            // ZOOM -> 5-option menu (XCIPTV modes)
+                            Box {
+                                LabelButton("ZOOM", onClick = {
+                                    showZoomMenu = true
+                                    poke()
+                                })
+                                DropdownMenu(
+                                    expanded = showZoomMenu,
+                                    onDismissRequest = { showZoomMenu = false },
+                                    modifier = Modifier.background(Color.Black),
+                                ) {
+                                    zoomModes.forEachIndexed { idx, mode ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    mode.label,
+                                                    color = if (idx == zoomIdx) SlAccent else Color.White,
+                                                    fontSize = 15.sp,
+                                                )
+                                            },
+                                            onClick = { applyZoom(idx); poke() },
+                                        )
+                                    }
                                 }
+                            }
+
+                            // AUDIO tracks
+                            LabelButton("AUDIO", onClick = {
+                                try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                showAudioDialog = true
+                                poke()
+                            })
+                            // SUBS / CC
+                            LabelButton("SUBS", onClick = {
+                                try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                showSubsDialog = true
+                                poke()
+                            })
+                            // VOL + brightness panel
+                            LabelButton("VOL", onClick = {
+                                showVbPanel = !showVbPanel
+                                poke()
+                            })
+                            // Favorite star
+                            TransportButton(
+                                icon = if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDesc = if (isFav) "Remove favorite" else "Add favorite",
+                                tint = if (isFav) SlAccent else Color.White,
+                                onClick = {
+                                    scope.launch {
+                                        isFav = FavStore.toggle(
+                                            context,
+                                            FavItem(url, currentTitle, kind, thumb),
+                                        )
+                                    }
+                                    poke()
+                                },
+                            )
+                        }
+                    }
+
+                    // Volume & brightness sliders panel (below the controls row)
+                    if (showVbPanel) {
+                        Spacer(Modifier.height(6.dp))
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xDD000000),
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp).width(200.dp)) {
+                                Text("Volume", fontSize = 13.sp, color = Color.White)
+                                Slider(
+                                    value = volume,
+                                    onValueChange = {
+                                        volume = it
+                                        try { player.volume = it } catch (_: Exception) {}
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text("Brightness", fontSize = 13.sp, color = Color.White)
+                                Slider(
+                                    value = if (brightness < 0) 0.5f else brightness,
+                                    onValueChange = {
+                                        brightness = it
+                                        activity?.window?.let { win ->
+                                            val lp = win.attributes
+                                            lp.screenBrightness = it
+                                            win.attributes = lp
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
                         }
                     }
@@ -610,10 +648,12 @@ fun PlayerScreen(
                 type = C.TRACK_TYPE_AUDIO,
                 allowOff = false,
                 onSelect = { group, trackIdx ->
-                    player.trackSelectionParameters = player.trackSelectionParameters
-                        .buildUpon()
-                        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
-                        .build()
+                    try {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
+                            .build()
+                    } catch (_: Exception) {}
                     showAudioDialog = false
                 },
                 onDismiss = { showAudioDialog = false },
@@ -628,18 +668,22 @@ fun PlayerScreen(
                 type = C.TRACK_TYPE_TEXT,
                 allowOff = true,
                 onSelect = { group, trackIdx ->
-                    player.trackSelectionParameters = player.trackSelectionParameters
-                        .buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
-                        .build()
+                    try {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
+                            .build()
+                    } catch (_: Exception) {}
                     showSubsDialog = false
                 },
                 onOff = {
-                    player.trackSelectionParameters = player.trackSelectionParameters
-                        .buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                        .build()
+                    try {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                            .build()
+                    } catch (_: Exception) {}
                     showSubsDialog = false
                 },
                 onDismiss = { showSubsDialog = false },
@@ -649,7 +693,7 @@ fun PlayerScreen(
 }
 
 /**
- * Big BLACK button with a WHITE vector icon — the transport controls
+ * Compact BLACK button with a WHITE vector icon — the transport controls
  * (prev / rewind / play-pause / forward / next / favorite).
  * Vector icons stay white on every device (emojis rendered orange before).
  * Shows a white border when D-pad focused (remote-first).
@@ -663,7 +707,7 @@ private fun TransportButton(
     focusRequester: FocusRequester? = null,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(12.dp)
     Card(
         onClick = onClick,
         shape = shape,
@@ -680,27 +724,27 @@ private fun TransportButton(
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
     ) {
         Box(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(9.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDesc,
                 tint = tint,
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(26.dp),
             )
         }
     }
 }
 
 /**
- * BLACK button with a WHITE text label — ZOOM / AUDIO / SUBS / VOL.
+ * Compact BLACK button with a WHITE text label — ZOOM / AUDIO / SUBS / VOL.
  * Shows a white border when D-pad focused (remote-first).
  */
 @Composable
 private fun LabelButton(label: String, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(10.dp)
     Card(
         onClick = onClick,
         shape = shape,
@@ -715,10 +759,10 @@ private fun LabelButton(label: String, onClick: () -> Unit) {
         modifier = Modifier.onFocusChanged { isFocused = it.isFocused },
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
