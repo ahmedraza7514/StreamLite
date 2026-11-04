@@ -47,6 +47,7 @@ import com.streamlite.tv.ui.screens.SearchScreen
 import com.streamlite.tv.ui.screens.SeriesDetailScreen
 import com.streamlite.tv.ui.screens.SeriesScreen
 import com.streamlite.tv.ui.screens.SettingsScreen
+import com.streamlite.tv.ui.screens.SplashScreen
 import com.streamlite.tv.ui.screens.SyncScreen
 import com.streamlite.tv.ui.screens.VodScreen
 import com.streamlite.tv.ui.theme.SlAccent
@@ -118,7 +119,7 @@ private fun AppRoot() {
             bufferJob.await()
             session = sessionJob.await()
         }
-        navStack.add(if (session != null) Screen.Home else Screen.Login)
+        navStack.add(Screen.Splash)
         booted = true
     }
 
@@ -223,6 +224,13 @@ private fun AppRoot() {
     }
 
     when (val s = navStack.last()) {
+        is Screen.Splash -> SplashScreen(
+            onFinished = {
+                // Splash done: go to Sync (update media contents) if logged in, else Login.
+                navStack.clear()
+                navStack.add(if (session != null) Screen.Sync() else Screen.Login)
+            },
+        )
         is Screen.Login -> LoginScreen(sessionManager, ::goHome)
         is Screen.AddAccount -> LoginScreen(
             sessionManager,
