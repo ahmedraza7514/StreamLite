@@ -57,6 +57,8 @@ import com.streamlite.tv.ui.theme.SlText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -103,13 +105,27 @@ private fun AppRoot() {
     val m3uCache: MutableState<List<M3uChannel>?> = remember { mutableStateOf(null) }
 
     LaunchedEffect(Unit) {
-        // Load the player-buffer preference before any player is created
-        BufferPrefStore.load(context.applicationContext)
-        session = sessionManager.getOnce()
+        // 2026-11-04 (Batch 2): load the player-buffer preference and the
+        // saved session IN PARALLEL (was sequential) — cuts startup time on
+        // the TV box. Both are IO-bound DataStore reads.
+        coroutineScope {
+            val bufferJob = async(Dispatchers.IO) {
+                BufferPrefStore.load(context.applicationContext)
+            }
+            val sessionJob = async(Dispatchers.IO) {
+                sessionManager.getOnce()
+            }
+            bufferJob.await()
+            session = sessionJob.await()
+        }
         navStack.add(if (session != null) Screen.Home else Screen.Login)
         booted = true
     }
 
+    // 2026-11-04 (Batch 2): Back NEVER kills the app while screens remain —
+    // it pops to the previous screen (channel list, home, ...). The player
+    // crash on back-press (white dialog) is fixed in PlayerScreen via
+    // guarded release()/ticker; this handler just pops the stack.
     BackHandler(enabled = booted && navStack.size > 1) {
         navStack.removeLast()
     }
