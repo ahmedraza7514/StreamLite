@@ -547,9 +547,10 @@ fun PlayerScreen(
                             }
 
                             // ZOOM -> 5-option menu (XCIPTV modes)
+                            // 2026-11-04 (Batch 5, Point 13): re-clicking ZOOM toggles the menu closed
                             Box {
                                 LabelButton("ZOOM", onClick = {
-                                    showZoomMenu = true
+                                    showZoomMenu = !showZoomMenu
                                     poke()
                                 })
                                 DropdownMenu(
@@ -573,15 +574,27 @@ fun PlayerScreen(
                             }
 
                             // AUDIO tracks
+                            // 2026-11-04 (Batch 5, Point 12): re-clicking AUDIO toggles the dialog closed
                             LabelButton("AUDIO", onClick = {
-                                try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
-                                showAudioDialog = true
+                                if (showAudioDialog) {
+                                    showAudioDialog = false
+                                } else {
+                                    showSubsDialog = false
+                                    try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                    showAudioDialog = true
+                                }
                                 poke()
                             })
                             // SUBS / CC
+                            // 2026-11-04 (Batch 5, Point 12): re-clicking SUBS toggles the dialog closed
                             LabelButton("SUBS", onClick = {
-                                try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
-                                showSubsDialog = true
+                                if (showSubsDialog) {
+                                    showSubsDialog = false
+                                } else {
+                                    showAudioDialog = false
+                                    try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                    showSubsDialog = true
+                                }
                                 poke()
                             })
                             // VOL + brightness panel
@@ -608,6 +621,8 @@ fun PlayerScreen(
                     }
 
                     // Volume & brightness sliders panel (below the controls row)
+                    // 2026-11-04 (Batch 5, Point 13): HORIZONTAL row so the bar
+                    // doesn't grow tall when opened
                     if (showVbPanel) {
                         Spacer(Modifier.height(6.dp))
                         Card(
@@ -617,30 +632,39 @@ fun PlayerScreen(
                                 contentColor = Color.White,
                             ),
                         ) {
-                            Column(modifier = Modifier.padding(14.dp).width(200.dp)) {
-                                Text("Volume", fontSize = 13.sp, color = Color.White)
-                                Slider(
-                                    value = volume,
-                                    onValueChange = {
-                                        volume = it
-                                        try { player.volume = it } catch (_: Exception) {}
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                Text("Brightness", fontSize = 13.sp, color = Color.White)
-                                Slider(
-                                    value = if (brightness < 0) 0.5f else brightness,
-                                    onValueChange = {
-                                        brightness = it
-                                        activity?.window?.let { win ->
-                                            val lp = win.attributes
-                                            lp.screenBrightness = it
-                                            win.attributes = lp
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Volume", fontSize = 13.sp, color = Color.White)
+                                    Slider(
+                                        value = volume,
+                                        onValueChange = {
+                                            volume = it
+                                            try { player.volume = it } catch (_: Exception) {}
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Brightness", fontSize = 13.sp, color = Color.White)
+                                    Slider(
+                                        value = if (brightness < 0) 0.5f else brightness,
+                                        onValueChange = {
+                                            brightness = it
+                                            activity?.window?.let { win ->
+                                                val lp = win.attributes
+                                                lp.screenBrightness = it
+                                                win.attributes = lp
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
                             }
                         }
                     }
@@ -648,9 +672,17 @@ fun PlayerScreen(
             }
         }
 
-        // ---- Audio track dialog (modal, above the bar) ----
+        // ---- Audio track dialog (above the control bar, NOT top of screen) ----
+        // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
+        // toggles closed by re-clicking the AUDIO button
         if (showAudioDialog) {
-            TrackDialog(
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 200.dp)
+                    .zIndex(2f),
+            ) {
+                TrackDialog(
                 title = "Audio",
                 tracks = trackSnapshot,
                 type = C.TRACK_TYPE_AUDIO,
@@ -666,11 +698,20 @@ fun PlayerScreen(
                 },
                 onDismiss = { showAudioDialog = false },
             )
+            }
         }
 
-        // ---- Subtitle track dialog (modal, above the bar) ----
+        // ---- Subtitle track dialog (above the control bar, NOT top of screen) ----
+        // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
+        // toggles closed by re-clicking the SUBS button
         if (showSubsDialog) {
-            TrackDialog(
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 200.dp)
+                    .zIndex(2f),
+            ) {
+                TrackDialog(
                 title = "Subtitles",
                 tracks = trackSnapshot,
                 type = C.TRACK_TYPE_TEXT,
@@ -695,7 +736,8 @@ fun PlayerScreen(
                     showSubsDialog = false
                 },
                 onDismiss = { showSubsDialog = false },
-            )
+                )
+            }
         }
     }
 }
