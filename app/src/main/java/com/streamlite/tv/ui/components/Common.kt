@@ -1,6 +1,8 @@
 package com.streamlite.tv.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,8 +13,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -103,11 +111,21 @@ fun MenuCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 2026-11-04 (Point 11): D-pad focus MUST be visible — scale up + accent border on focus.
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.06f else 1f, label = "menuCardScale")
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale)
+            .border(
+                width = if (isFocused) 3.dp else 0.dp,
+                color = SlAccent,
+                shape = RoundedCornerShape(20.dp),
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = SlSurface,
+            containerColor = if (isFocused) SlCard else SlSurface,
             contentColor = SlText,
         ),
         shape = RoundedCornerShape(20.dp),
@@ -126,7 +144,7 @@ fun ChannelLogo(url: String, modifier: Modifier = Modifier) {
             model = url,
             contentDescription = null,
             modifier = modifier,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
         )
     } else {
         Box(
