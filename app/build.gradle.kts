@@ -12,8 +12,10 @@ android {
         applicationId = "com.streamlite.tv"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // 2026-11-04: v2.0 — Batch 2 (10 pts) + Point 11 (focus) + Splash + rename to A.R. Xtream IPTV.
+        // Rule: bump versionCode + versionName on every build that ships changes.
+        versionCode = 2
+        versionName = "2.0"
     }
 
     buildTypes {
