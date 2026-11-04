@@ -68,7 +68,17 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var urlDropdownOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // 2026-11-04: Preset server URLs (http only, per user). Dropdown fills the
+    // manual field; manual typing still works.
+    val presetUrls = listOf(
+        "http://myott.to:80",
+        "http://osmart.top:8080",
+        "http://xott.live",
+        "http://otv.to:8080",
+    )
 
     fun doLogin() {
         if (loading) return
@@ -128,6 +138,64 @@ fun LoginScreen(
             placeholder = "http://myserver.to:8080",
             keyboardType = KeyboardType.Uri,
         )
+        Spacer(Modifier.height(8.dp))
+
+        // 2026-11-04: Preset URL dropdown — tap to pick, fills the field above.
+        var urlFocused by remember { mutableStateOf(false) }
+        Card(
+            onClick = { urlDropdownOpen = !urlDropdownOpen },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { urlFocused = it.isFocused },
+            colors = CardDefaults.cardColors(
+                containerColor = if (urlFocused) SlAccent else SlSurface,
+                contentColor = if (urlFocused) Color.Black else SlText,
+            ),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    if (server.isBlank()) "Choose a server…" else server,
+                    fontSize = 15.sp,
+                    color = if (urlFocused) Color.Black else SlTextDim,
+                )
+            }
+        }
+        if (urlDropdownOpen) {
+            Spacer(Modifier.height(8.dp))
+            presetUrls.forEach { preset ->
+                var itemFocused by remember { mutableStateOf(false) }
+                Card(
+                    onClick = {
+                        server = preset
+                        urlDropdownOpen = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .onFocusChanged { itemFocused = it.isFocused },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (itemFocused) SlAccent else SlSurface,
+                        contentColor = if (itemFocused) Color.Black else SlText,
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text(preset, fontSize = 15.sp)
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         FieldLabel("Username")
