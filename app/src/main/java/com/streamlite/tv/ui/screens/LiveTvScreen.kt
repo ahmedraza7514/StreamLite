@@ -496,18 +496,28 @@ private fun ChannelGridCard(
                 shape = RoundedCornerShape(12.dp),
             ),
     ) {
+        // 2026-11-04 (Batch 2): XCIPTV-style tall logo box (was square 60dp).
+        // ChannelLogo uses ContentScale.Fit so the FULL logo is always visible
+        // (never cropped). Logo on top, title below.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ChannelLogo(
-                item.logo,
-                Modifier
+            Box(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
-            )
+                    .height(96.dp)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                ChannelLogo(
+                    item.logo,
+                    Modifier.fillMaxSize(),
+                )
+            }
             Spacer(Modifier.height(6.dp))
             Text(
                 item.name,
