@@ -12,12 +12,12 @@ android {
         applicationId = "com.streamlite.tv"
         minSdk = 23
         targetSdk = 35
-        // 2026-11-04: v2.4 — Batch 4 (pts 6-11): WHITE focus borders everywhere,
-        // compact home control boxes, "A.R. Xtream IPTV Player" home title,
-        // 4-screen back-nav fix + per-quadrant D-pad play/pause & mute.
+        // 2026-11-04: v2.5 — Batch 5 (pts 12-14): AUDIO/SUBS dialogs toggle on
+        // re-click + sit above the bar; Volume/Brightness in a horizontal ROW;
+        // WHITE 3dp border + scale on channel/movie/series GRID ITEMS.
         // Rule: bump versionCode + versionName on every build that ships changes.
-        versionCode = 6
-        versionName = "2.4"
+        versionCode = 7
+        versionName = "2.5"
     }
 
     buildTypes {
