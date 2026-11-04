@@ -81,6 +81,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -706,21 +708,24 @@ private fun TransportButton(
     tint: Color = Color.White,
     focusRequester: FocusRequester? = null,
 ) {
+    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright accent border + lighter bg.
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.15f else 1f, label = "transportScale")
     val shape = RoundedCornerShape(12.dp)
     Card(
         onClick = onClick,
         shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = Color.Black,
+            containerColor = if (isFocused) Color(0xFF2A4A66) else Color.Black,
             contentColor = Color.White,
         ),
         border = androidx.compose.foundation.BorderStroke(
-            width = if (isFocused) 2.dp else 1.dp,
-            color = if (isFocused) Color.White else Color(0xFF333333),
+            width = if (isFocused) 3.dp else 1.dp,
+            color = if (isFocused) Color(0xFF00C2FF) else Color(0xFF333333),
         ),
         modifier = Modifier
             .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
     ) {
         Box(
@@ -743,20 +748,24 @@ private fun TransportButton(
  */
 @Composable
 private fun LabelButton(label: String, onClick: () -> Unit) {
+    // 2026-11-04 (Point 11): focus MUST be felt — scale pop + bright accent border + lighter bg.
     var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isFocused) 1.12f else 1f, label = "labelBtnScale")
     val shape = RoundedCornerShape(10.dp)
     Card(
         onClick = onClick,
         shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = Color.Black,
+            containerColor = if (isFocused) Color(0xFF2A4A66) else Color.Black,
             contentColor = Color.White,
         ),
         border = androidx.compose.foundation.BorderStroke(
-            width = if (isFocused) 2.dp else 1.dp,
-            color = if (isFocused) Color.White else Color(0xFF333333),
+            width = if (isFocused) 3.dp else 1.dp,
+            color = if (isFocused) Color(0xFF00C2FF) else Color(0xFF333333),
         ),
-        modifier = Modifier.onFocusChanged { isFocused = it.isFocused },
+        modifier = Modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale),
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
