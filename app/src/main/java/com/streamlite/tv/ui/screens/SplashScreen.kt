@@ -20,6 +20,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import com.streamlite.tv.R
@@ -81,6 +82,9 @@ fun SplashScreen(onFinished: () -> Unit) {
                     PlayerView(ctx).apply {
                         player = exo
                         useController = false
+                        // 2026-11-05 (Batch 8, Point 7): FILL the screen edge to
+                        // edge (fit to page) — no black bars left/right.
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
