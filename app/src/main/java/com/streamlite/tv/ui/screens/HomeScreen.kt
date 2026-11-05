@@ -1,7 +1,12 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.ui.draw.rotate
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,7 +28,6 @@ import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Card
@@ -53,12 +57,6 @@ import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
 import com.streamlite.tv.data.XtreamClient
 import com.streamlite.tv.ui.Screen
-import com.streamlite.tv.ui.theme.SlAccent
-import com.streamlite.tv.ui.theme.SlBackground
-import com.streamlite.tv.ui.theme.SlCard
-import com.streamlite.tv.ui.theme.SlSurface
-import com.streamlite.tv.ui.theme.SlText
-import com.streamlite.tv.ui.theme.SlTextDim
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,9 +64,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+// Home-only AZUL theme (Batch 8 fix): ONLY the home screen uses the AZUL
+// purple palette (100% the reference colors) — the rest of the app keeps
+// the original blue theme (Theme.kt reverted).
+private val HomeBackground = Color(0xFF14141F)
+private val HomeSurface = Color(0xFF232338)
+private val HomeCard = Color(0xFF2E2E48)
+private val HomeAccent = Color(0xFFA855F7)
+private val HomeTextDim = Color(0xFFB0AEC9)
+
 // 2026-11-05 (Batch 7): AZUL-style home — app logo + name top-left, live
 // date/time + account expiration top-right, three big horizontal cards
-// (LIVE TV / Movies / Series) with counts, right column (Catch up /
+// (LIVE TV / Movies / Series / 4 Screen) with counts, right column (
 // Multi-Screen / Settings / Account / Log out),
 // "Developed By: Ahmed & Wasif Bukhari" at the bottom. Cards POP UP
 // (scale + white border + shadow) on D-pad focus / mouse hover.
@@ -120,7 +127,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SlBackground)
+            .background(HomeBackground)
             .padding(horizontal = 40.dp, vertical = 28.dp),
     ) {
         // ---- HEADER: logo + app name (left), date/time + expiration (right) ----
@@ -138,7 +145,7 @@ fun HomeScreen(
                 "A.R. Xtream IPTV",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = SlAccent,
+                color = HomeAccent,
             )
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
@@ -147,7 +154,7 @@ fun HomeScreen(
                     Text(
                         expText,
                         fontSize = 14.sp,
-                        color = SlTextDim,
+                        color = HomeTextDim,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -168,6 +175,7 @@ fun HomeScreen(
             ) {
                 HomeBigCard(
                     icon = Icons.Filled.LiveTv,
+                    logoType = "live",
                     title = "LIVE TV",
                     count = "• $liveCount Channels",
                     onClick = { onNavigate(Screen.LiveTv) },
@@ -176,6 +184,7 @@ fun HomeScreen(
                 if (session.type == LoginType.XTREAM) {
                     HomeBigCard(
                         icon = Icons.Filled.Movie,
+                        logoType = "movie",
                         title = "Movies",
                         count = "• $vodCount Movies",
                         onClick = { onNavigate(Screen.Vod) },
@@ -183,9 +192,20 @@ fun HomeScreen(
                     )
                     HomeBigCard(
                         icon = Icons.Filled.VideoLibrary,
+                        logoType = "series",
                         title = "Series",
                         count = "• $seriesCount Series",
                         onClick = { onNavigate(Screen.Series) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    // 2026-11-05 (Batch 8 fix): 4th big card — 4 Screen, same
+                    // size and same design as Live TV / Movies / Series.
+                    HomeBigCard(
+                        icon = Icons.Filled.GridView,
+                        logoType = "grid",
+                        title = "4 Screen",
+                        count = "• Multi-Screen",
+                        onClick = { onNavigate(Screen.MultiView) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -193,16 +213,9 @@ fun HomeScreen(
             // Right column — reference order first, then the rest of the app.
             Column(
                 modifier = Modifier.weight(0.28f),
-                // 7 rows in ~360dp of TV height — compact rows + 8dp gaps.
+                // 4 rows in ~360dp of TV height — compact rows + 8dp gaps.
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Catch up has no separate archive player yet — it opens Live TV,
-                // where the catch-up channels live.
-                HomeSideRow(
-                    icon = Icons.Filled.Replay,
-                    label = "Catch up",
-                    onClick = { onNavigate(Screen.LiveTv) },
-                )
                 HomeSideRow(
                     icon = Icons.Filled.GridView,
                     label = "Multi-Screen",
@@ -246,6 +259,7 @@ fun HomeScreen(
 @Composable
 private fun HomeBigCard(
     icon: ImageVector,
+    logoType: String = "live",
     title: String,
     count: String,
     onClick: () -> Unit,
@@ -253,13 +267,32 @@ private fun HomeBigCard(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "homeBigCardScale")
-    // 2026-11-05 (Batch 8, Point 5): logo ANIMATES (spring pop) when the
-    // remote selection lands on the card — LIVE / Movies / Series.
-    val iconScale by animateFloatAsState(
-        if (isFocused) 1.22f else 1f,
-        animationSpec = spring(dampingRatio = 0.35f, stiffness = 300f),
-        label = "homeCardIconPop",
+    // 2026-11-05 (Batch 8 fix): each logo ANIMATES continuously while the
+    // remote selection is on its card — NO sound, visual only.
+    // LIVE = pulse, Movies reel = spins, Series = wobble (clapper).
+    val infinite = rememberInfiniteTransition(label = "homeLogoAnim")
+    val pulse by infinite.animateFloat(
+        initialValue = 1f, targetValue = 1.18f,
+        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+        label = "logoPulse",
     )
+    val spin by infinite.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing), RepeatMode.Restart),
+        label = "logoSpin",
+    )
+    val wobble by infinite.animateFloat(
+        initialValue = -10f, targetValue = 10f,
+        animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
+        label = "logoWobble",
+    )
+    val iconModifier = when (logoType) {
+        "movie" -> Modifier.size(80.dp).rotate(if (isFocused) spin else 0f)
+        "series" -> Modifier.size(80.dp)
+            .rotate(if (isFocused) wobble else 0f)
+            .scale(if (isFocused) pulse else 1f)
+        else -> Modifier.size(80.dp).scale(if (isFocused) pulse else 1f) // live: pulse
+    }
     Card(
         onClick = onClick,
         modifier = modifier
@@ -272,8 +305,8 @@ private fun HomeBigCard(
                 shape = RoundedCornerShape(20.dp),
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) SlCard else SlSurface,
-            contentColor = SlText,
+            containerColor = if (isFocused) HomeCard else HomeSurface,
+            contentColor = Color.White,
         ),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(
@@ -285,11 +318,11 @@ private fun HomeBigCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = title, tint = SlAccent, modifier = Modifier.size(80.dp).scale(iconScale))
+            Icon(icon, contentDescription = title, tint = HomeAccent, modifier = iconModifier)
             Spacer(Modifier.height(16.dp))
             Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(6.dp))
-            Text(count, fontSize = 18.sp, color = SlTextDim)
+            Text(count, fontSize = 18.sp, color = HomeTextDim)
         }
     }
 }
@@ -315,8 +348,8 @@ private fun HomeSideRow(
                 shape = RoundedCornerShape(14.dp),
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) SlCard else SlSurface,
-            contentColor = SlText,
+            containerColor = if (isFocused) HomeCard else HomeSurface,
+            contentColor = Color.White,
         ),
         shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(
@@ -327,7 +360,7 @@ private fun HomeSideRow(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = label, tint = SlAccent, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = label, tint = HomeAccent, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))
             Text(label, fontSize = 18.sp, color = Color.White)
         }
