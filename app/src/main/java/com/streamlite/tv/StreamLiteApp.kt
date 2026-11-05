@@ -19,9 +19,12 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
                     .build()
             }
             .diskCache {
+                // 2026-11-05 (Batch 6, Point 17): 50MB was too small to hold
+                // ALL preloaded thumbnails — 100MB disk cache (storage only,
+                // zero extra RAM) so the preload actually sticks.
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("coil"))
-                    .maxSizeBytes(50L * 1024 * 1024)
+                    .maxSizeBytes(100L * 1024 * 1024)
                     .build()
             }
             .build()
