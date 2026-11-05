@@ -13,6 +13,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +23,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LiveTv
@@ -66,20 +69,26 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 // Home-only AZUL theme (Batch 8 fix): ONLY the home screen uses the AZUL
-// purple palette (100% the reference colors) — the rest of the app keeps
-// the original blue theme (Theme.kt reverted).
-private val HomeBackground = Color(0xFF14141F)
-private val HomeSurface = Color(0xFF232338)
-private val HomeCard = Color(0xFF2E2E48)
+// purple palette — the rest of the app keeps the original blue theme
+// (Theme.kt reverted).
+// 2026-11-05 (Fix 3): colors MEASURED from his AZUL reference screenshot
+// (region-averaged, not eyeballed): bg #1D182C, card #2E2B3C,
+// side-row surface #312E3F, accent #A855F7, text-dim #B0AEC9.
+private val HomeBackground = Color(0xFF1D182C)
+private val HomeSurface = Color(0xFF312E3F)
+private val HomeCard = Color(0xFF2E2B3C)
 private val HomeAccent = Color(0xFFA855F7)
 private val HomeTextDim = Color(0xFFB0AEC9)
 
 // 2026-11-05 (Batch 7): AZUL-style home — app logo + name top-left, live
-// date/time + account expiration top-right, three big horizontal cards
-// (LIVE TV / Movies / Series / 4 Screen) with counts, right column (
-// Multi-Screen / Settings / Account / Log out),
-// "Developed By: Ahmed & Wasif Bukhari" at the bottom. Cards POP UP
-// (scale + white border + shadow) on D-pad focus / mouse hover.
+// date/time + account expiration top-right, big cards (LIVE TV / Movies /
+// Series / 4 Screen) with counts, right column (Multi-Screen / Settings /
+// Account / Log out), "Developed By: Ahmed & Wasif Bukhari" at the bottom.
+// Cards POP UP (scale + white border + shadow) on D-pad focus / mouse hover.
+// 2026-11-05 (Fix 3): logos animate ALL the time now (not only on focus —
+// on mobile focus never engages, so nothing moved); on narrow screens
+// (<600dp, mobile) the layout switches to a compact 2x2 grid of small
+// cards + side rows below, so everything fits the phone screen.
 
 @Composable
 fun HomeScreen(
@@ -125,137 +134,281 @@ fun HomeScreen(
     val vodCount = DataRepository.vodTotalCount
     val seriesCount = DataRepository.seriesTotalCount
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HomeBackground)
-            .padding(horizontal = 40.dp, vertical = 28.dp),
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(HomeBackground),
     ) {
-        // ---- HEADER: logo + app name (left), date/time + expiration (right) ----
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = "A.R. Xtream IPTV logo",
-                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
-            )
-            Spacer(Modifier.width(16.dp))
-            Text(
-                "A.R. Xtream IPTV",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = HomeAccent,
-            )
-            Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(dateText, fontSize = 16.sp, color = Color.White)
-                if (expText != null) {
-                    Text(
-                        expText,
-                        fontSize = 14.sp,
-                        color = HomeTextDim,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        // ---- MAIN ROW: 3 big cards (left) + right column ----
-        Row(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            // Big horizontal cards
-            Row(
-                modifier = Modifier.weight(0.72f),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                HomeBigCard(
-                    icon = Icons.Filled.LiveTv,
-                    logoType = "live",
-                    title = "LIVE TV",
-                    count = "• $liveCount Channels",
-                    onClick = { onNavigate(Screen.LiveTv) },
-                    modifier = Modifier.weight(1f),
-                )
-                if (session.type == LoginType.XTREAM) {
-                    HomeBigCard(
-                        icon = Icons.Filled.Movie,
-                        logoType = "movie",
-                        title = "Movies",
-                        count = "• $vodCount Movies",
-                        onClick = { onNavigate(Screen.Vod) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    HomeBigCard(
-                        icon = Icons.Filled.VideoLibrary,
-                        logoType = "series",
-                        title = "Series",
-                        count = "• $seriesCount Series",
-                        onClick = { onNavigate(Screen.Series) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    // 2026-11-05 (Batch 8 fix): 4th big card — 4 Screen, same
-                    // size and same design as Live TV / Movies / Series.
-                    HomeBigCard(
-                        icon = Icons.Filled.GridView,
-                        logoType = "grid",
-                        title = "4 Screen",
-                        count = "• Multi-Screen",
-                        onClick = { onNavigate(Screen.MultiView) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-            // Right column — reference order first, then the rest of the app.
+        val isMobile = maxWidth < 600.dp
+        if (isMobile) {
+            // ---- MOBILE (phone): compact 2x2 grid of small cards ----
             Column(
-                modifier = Modifier.weight(0.28f),
-                // 4 rows in ~360dp of TV height — compact rows + 8dp gaps.
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
             ) {
-                HomeSideRow(
-                    icon = Icons.Filled.GridView,
-                    label = "Multi-Screen",
-                    onClick = { onNavigate(Screen.MultiView) },
+                // Header, compact.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = "A.R. Xtream IPTV logo",
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "A.R. Xtream IPTV",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = HomeAccent,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(dateText, fontSize = 12.sp, color = Color.White)
+                        if (expText != null) {
+                            Text(
+                                expText,
+                                fontSize = 11.sp,
+                                color = HomeTextDim,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 2x2 grid of small cards.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HomeBigCard(
+                        icon = Icons.Filled.LiveTv,
+                        logoType = "live",
+                        title = "LIVE TV",
+                        count = "• $liveCount Channels",
+                        onClick = { onNavigate(Screen.LiveTv) },
+                        modifier = Modifier.weight(1f),
+                        compact = true,
+                    )
+                    if (session.type == LoginType.XTREAM) {
+                        HomeBigCard(
+                            icon = Icons.Filled.Movie,
+                            logoType = "movie",
+                            title = "Movies",
+                            count = "• $vodCount Movies",
+                            onClick = { onNavigate(Screen.Vod) },
+                            modifier = Modifier.weight(1f),
+                            compact = true,
+                        )
+                    }
+                }
+                if (session.type == LoginType.XTREAM) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        HomeBigCard(
+                            icon = Icons.Filled.VideoLibrary,
+                            logoType = "series",
+                            title = "Series",
+                            count = "• $seriesCount Series",
+                            onClick = { onNavigate(Screen.Series) },
+                            modifier = Modifier.weight(1f),
+                            compact = true,
+                        )
+                        HomeBigCard(
+                            icon = Icons.Filled.GridView,
+                            logoType = "grid",
+                            title = "4 Screen",
+                            count = "• Multi-Screen",
+                            onClick = { onNavigate(Screen.MultiView) },
+                            modifier = Modifier.weight(1f),
+                            compact = true,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Side rows, full width, one below the other.
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HomeSideRow(
+                        icon = Icons.Filled.GridView,
+                        label = "Multi-Screen",
+                        onClick = { onNavigate(Screen.MultiView) },
+                    )
+                    HomeSideRow(
+                        icon = Icons.Filled.Settings,
+                        label = "Settings",
+                        onClick = { onNavigate(Screen.Settings) },
+                    )
+                    HomeSideRow(
+                        icon = Icons.Filled.Person,
+                        label = "Account",
+                        onClick = { onNavigate(Screen.Account) },
+                    )
+                    HomeSideRow(
+                        icon = Icons.Filled.Logout,
+                        label = "Log out",
+                        onClick = onLogout,
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Developed By: Ahmed & Wasif Bukhari",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                HomeSideRow(
-                    icon = Icons.Filled.Settings,
-                    label = "Settings",
-                    onClick = { onNavigate(Screen.Settings) },
-                )
-                HomeSideRow(
-                    icon = Icons.Filled.Person,
-                    label = "Account",
-                    onClick = { onNavigate(Screen.Account) },
-                )
-                HomeSideRow(
-                    icon = Icons.Filled.Logout,
-                    label = "Log out",
-                    onClick = onLogout,
+            }
+        } else {
+            // ---- TV (wide): original big-card layout, unchanged ----
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 40.dp, vertical = 28.dp),
+            ) {
+                // ---- HEADER: logo + app name (left), date/time + expiration (right) ----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = "A.R. Xtream IPTV logo",
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        "A.R. Xtream IPTV",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = HomeAccent,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(dateText, fontSize = 16.sp, color = Color.White)
+                        if (expText != null) {
+                            Text(
+                                expText,
+                                fontSize = 14.sp,
+                                color = HomeTextDim,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                // ---- MAIN ROW: big cards (left) + right column ----
+                Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    // Big horizontal cards
+                    Row(
+                        modifier = Modifier.weight(0.72f),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        HomeBigCard(
+                            icon = Icons.Filled.LiveTv,
+                            logoType = "live",
+                            title = "LIVE TV",
+                            count = "• $liveCount Channels",
+                            onClick = { onNavigate(Screen.LiveTv) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (session.type == LoginType.XTREAM) {
+                            HomeBigCard(
+                                icon = Icons.Filled.Movie,
+                                logoType = "movie",
+                                title = "Movies",
+                                count = "• $vodCount Movies",
+                                onClick = { onNavigate(Screen.Vod) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            HomeBigCard(
+                                icon = Icons.Filled.VideoLibrary,
+                                logoType = "series",
+                                title = "Series",
+                                count = "• $seriesCount Series",
+                                onClick = { onNavigate(Screen.Series) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            // 2026-11-05 (Batch 8 fix): 4th big card — 4 Screen, same
+                            // size and same design as Live TV / Movies / Series.
+                            HomeBigCard(
+                                icon = Icons.Filled.GridView,
+                                logoType = "grid",
+                                title = "4 Screen",
+                                count = "• Multi-Screen",
+                                onClick = { onNavigate(Screen.MultiView) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    // Right column — reference order first, then the rest of the app.
+                    Column(
+                        modifier = Modifier.weight(0.28f),
+                        // 4 rows in ~360dp of TV height — compact rows + 8dp gaps.
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        HomeSideRow(
+                            icon = Icons.Filled.GridView,
+                            label = "Multi-Screen",
+                            onClick = { onNavigate(Screen.MultiView) },
+                        )
+                        HomeSideRow(
+                            icon = Icons.Filled.Settings,
+                            label = "Settings",
+                            onClick = { onNavigate(Screen.Settings) },
+                        )
+                        HomeSideRow(
+                            icon = Icons.Filled.Person,
+                            label = "Account",
+                            onClick = { onNavigate(Screen.Account) },
+                        )
+                        HomeSideRow(
+                            icon = Icons.Filled.Logout,
+                            label = "Log out",
+                            onClick = onLogout,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "Developed By: Ahmed & Wasif Bukhari",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Developed By: Ahmed & Wasif Bukhari",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
 /**
- * Big horizontal card (LIVE TV / Movies / Series): icon on top, bold title,
+ * Big card (LIVE TV / Movies / Series / 4 Screen): icon on top, bold title,
  * count below. POPS UP on D-pad focus / mouse hover — scale + white border
  * + shadow, like the reference interface.
+ * The LOGO animates ALL the time (no focus condition — on mobile focus
+ * never engages): LIVE = pulse, Movies reel = spins, Series = wobble,
+ * 4 Screen = pulse. NO sound, visual only.
+ * compact = true on phones: small card (150dp, 48dp icon, 20sp title).
  */
 @Composable
 private fun HomeBigCard(
@@ -265,12 +418,10 @@ private fun HomeBigCard(
     count: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "homeBigCardScale")
-    // 2026-11-05 (Batch 8 fix): each logo ANIMATES continuously while the
-    // remote selection is on its card — NO sound, visual only.
-    // LIVE = pulse, Movies reel = spins, Series = wobble (clapper).
     val infinite = rememberInfiniteTransition(label = "homeLogoAnim")
     val pulse by infinite.animateFloat(
         initialValue = 1f, targetValue = 1.18f,
@@ -287,17 +438,23 @@ private fun HomeBigCard(
         animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
         label = "logoWobble",
     )
+    // Always animate — no isFocused gate (Fix 3).
+    val iconSize = if (compact) 48.dp else 80.dp
     val iconModifier = when (logoType) {
-        "movie" -> Modifier.size(80.dp).rotate(if (isFocused) spin else 0f)
-        "series" -> Modifier.size(80.dp)
-            .rotate(if (isFocused) wobble else 0f)
-            .scale(if (isFocused) pulse else 1f)
-        else -> Modifier.size(80.dp).scale(if (isFocused) pulse else 1f) // live: pulse
+        "movie" -> Modifier.size(iconSize).rotate(spin)
+        "series" -> Modifier.size(iconSize).rotate(wobble).scale(pulse)
+        else -> Modifier.size(iconSize).scale(pulse) // live + grid: pulse
+    }
+    // Icon tints match the AZUL reference: LIVE + Movies icons are white,
+    // Series clapper + 4 Screen are the purple accent.
+    val iconTint = when (logoType) {
+        "live", "movie" -> Color.White
+        else -> HomeAccent
     }
     Card(
         onClick = onClick,
         modifier = modifier
-            .height(280.dp)
+            .height(if (compact) 150.dp else 280.dp)
             .onFocusChanged { isFocused = it.isFocused }
             .scale(scale)
             .border(
@@ -306,7 +463,7 @@ private fun HomeBigCard(
                 shape = RoundedCornerShape(20.dp),
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) HomeCard else HomeSurface,
+            containerColor = HomeCard,
             contentColor = Color.White,
         ),
         shape = RoundedCornerShape(20.dp),
@@ -315,15 +472,20 @@ private fun HomeBigCard(
         ),
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = title, tint = HomeAccent, modifier = iconModifier)
-            Spacer(Modifier.height(16.dp))
-            Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.height(6.dp))
-            Text(count, fontSize = 18.sp, color = HomeTextDim)
+            Icon(icon, contentDescription = title, tint = iconTint, modifier = iconModifier)
+            Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
+            Text(
+                title,
+                fontSize = if (compact) 20.sp else 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
+            Text(count, fontSize = if (compact) 13.sp else 18.sp, color = HomeTextDim)
         }
     }
 }
@@ -349,7 +511,7 @@ private fun HomeSideRow(
                 shape = RoundedCornerShape(14.dp),
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) HomeCard else HomeSurface,
+            containerColor = HomeSurface,
             contentColor = Color.White,
         ),
         shape = RoundedCornerShape(14.dp),
