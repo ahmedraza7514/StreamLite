@@ -89,20 +89,28 @@ fun LoginScreen(
                 if (server.isBlank() || username.isBlank() || password.isBlank()) {
                     throw IOException("Please fill in server, username and password.")
                 }
-                val active = withContext(Dispatchers.IO) {
-                    XtreamClient(server, username, password).login()
-                }
+                // 2026-11-05 (Batch 7): fetch the account expiration too, so the
+                // home header can show it ("Expiration: ...").
+                val client = XtreamClient(server, username, password)
+                val active = withContext(Dispatchers.IO) { client.login() }
                 if (!active) throw IOException("This account is not active.")
+                val exp = try {
+                    withContext(Dispatchers.IO) { client.expDate() }
+                } catch (_: Exception) {
+                    0L
+                }
                 val session = LoginSession(
                     type = LoginType.XTREAM,
                     server = server.trim().trimEnd('/'),
                     username = username.trim(),
                     password = password.trim(),
+                    expDate = exp,
                 )
                 if (addMode) {
                     sessionManager.addAccount(session)
                 } else {
-                    sessionManager.saveXtream(server, username, password)
+                    // saveAccount (not saveXtream) so the expiration survives.
+                    sessionManager.saveAccount(session)
                 }
                 onLoggedIn(session)
             } catch (e: Exception) {
