@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -676,10 +677,12 @@ fun PlayerScreen(
         // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
         // toggles closed by re-clicking the AUDIO button
         if (showAudioDialog) {
+            // 2026-11-05 (Batch 7): SMALL popup above the AUDIO button (right side),
+            // sized to its content — not a big panel in the middle of the screen.
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 200.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 200.dp)
                     .zIndex(2f),
             ) {
                 TrackDialog(
@@ -705,10 +708,11 @@ fun PlayerScreen(
         // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
         // toggles closed by re-clicking the SUBS button
         if (showSubsDialog) {
+            // 2026-11-05 (Batch 7): SMALL popup above the SUBS button, same as Audio.
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 200.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 200.dp)
                     .zIndex(2f),
             ) {
                 TrackDialog(
@@ -839,7 +843,9 @@ private fun TrackDialog(
 ) {
     val groups = tracks?.groups?.filter { it.type == type } ?: emptyList()
     Card(
-        modifier = Modifier.fillMaxWidth(0.85f),
+        // 2026-11-05 (Batch 7): dialog hugs its content (max 480dp) instead of
+        // stretching 85% across the screen.
+        modifier = Modifier.widthIn(min = 300.dp, max = 480.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF0F1E2E),
@@ -859,7 +865,7 @@ private fun TrackDialog(
                         contentColor = Color.White,
                     ),
                 ) {
-                    Text("Off", fontSize = 15.sp,
+                    Text("Off", fontSize = 15.sp, color = Color.White,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
                 }
             }
@@ -888,7 +894,11 @@ private fun TrackDialog(
                                 contentColor = if (selected) Color.Black else Color.White,
                             ),
                         ) {
+                            // 2026-11-05 (Batch 7): explicit color — tv Text ignores the
+                            // Card's contentColor, so unselected tracks were BLACK on dark
+                            // blue and unreadable. Selected = black on bright blue, else white.
                             Text(label, fontSize = 15.sp,
+                                color = if (selected) Color.Black else Color.White,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
                         }
                     }
@@ -906,7 +916,7 @@ private fun TrackDialog(
             ) {
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center) {
-                    Text("Close", fontSize = 14.sp)
+                    Text("Close", fontSize = 14.sp, color = Color(0xFFAAAAAA))
                 }
             }
         }
