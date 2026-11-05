@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,12 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -46,12 +44,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
@@ -65,6 +67,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -185,8 +190,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     HomeBigCard(
-                        icon = Icons.Filled.LiveTv,
-                        logoType = "live",
+                            logoType = "live",
                         title = "LIVE TV",
                         count = "• $liveCount Channels",
                         onClick = { onNavigate(Screen.LiveTv) },
@@ -195,8 +199,7 @@ fun HomeScreen(
                     )
                     if (session.type == LoginType.XTREAM) {
                         HomeBigCard(
-                            icon = Icons.Filled.Movie,
-                            logoType = "movie",
+                                    logoType = "movie",
                             title = "Movies",
                             count = "• $vodCount Movies",
                             onClick = { onNavigate(Screen.Vod) },
@@ -212,8 +215,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         HomeBigCard(
-                            icon = Icons.Filled.VideoLibrary,
-                            logoType = "series",
+                                    logoType = "series",
                             title = "Series",
                             count = "• $seriesCount Series",
                             onClick = { onNavigate(Screen.Series) },
@@ -221,8 +223,7 @@ fun HomeScreen(
                             compact = true,
                         )
                         HomeBigCard(
-                            icon = Icons.Filled.GridView,
-                            logoType = "grid",
+                                    logoType = "grid",
                             title = "4 Screen",
                             count = "• Multi-Screen",
                             onClick = { onNavigate(Screen.MultiView) },
@@ -322,8 +323,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         HomeBigCard(
-                            icon = Icons.Filled.LiveTv,
-                            logoType = "live",
+                                    logoType = "live",
                             title = "LIVE TV",
                             count = "• $liveCount Channels",
                             onClick = { onNavigate(Screen.LiveTv) },
@@ -331,16 +331,14 @@ fun HomeScreen(
                         )
                         if (session.type == LoginType.XTREAM) {
                             HomeBigCard(
-                                icon = Icons.Filled.Movie,
-                                logoType = "movie",
+                                            logoType = "movie",
                                 title = "Movies",
                                 count = "• $vodCount Movies",
                                 onClick = { onNavigate(Screen.Vod) },
                                 modifier = Modifier.weight(1f),
                             )
                             HomeBigCard(
-                                icon = Icons.Filled.VideoLibrary,
-                                logoType = "series",
+                                            logoType = "series",
                                 title = "Series",
                                 count = "• $seriesCount Series",
                                 onClick = { onNavigate(Screen.Series) },
@@ -349,8 +347,7 @@ fun HomeScreen(
                             // 2026-11-05 (Batch 8 fix): 4th big card — 4 Screen, same
                             // size and same design as Live TV / Movies / Series.
                             HomeBigCard(
-                                icon = Icons.Filled.GridView,
-                                logoType = "grid",
+                                            logoType = "grid",
                                 title = "4 Screen",
                                 count = "• Multi-Screen",
                                 onClick = { onNavigate(Screen.MultiView) },
@@ -412,7 +409,6 @@ fun HomeScreen(
  */
 @Composable
 private fun HomeBigCard(
-    icon: ImageVector,
     logoType: String = "live",
     title: String,
     count: String,
@@ -440,16 +436,10 @@ private fun HomeBigCard(
     )
     // Always animate — no isFocused gate (Fix 3).
     val iconSize = if (compact) 48.dp else 80.dp
-    val iconModifier = when (logoType) {
-        "movie" -> Modifier.size(iconSize).rotate(spin)
-        "series" -> Modifier.size(iconSize).rotate(wobble).scale(pulse)
-        else -> Modifier.size(iconSize).scale(pulse) // live + grid: pulse
-    }
-    // Icon tints match the AZUL reference: LIVE + Movies icons are white,
-    // Series clapper + 4 Screen are the purple accent.
-    val iconTint = when (logoType) {
-        "live", "movie" -> Color.White
-        else -> HomeAccent
+    val logoModifier = when (logoType) {
+        "movie" -> Modifier.rotate(spin)
+        "series" -> Modifier.rotate(wobble).scale(pulse)
+        else -> Modifier.scale(pulse) // live + grid: pulse
     }
     Card(
         onClick = onClick,
@@ -476,7 +466,7 @@ private fun HomeBigCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = title, tint = iconTint, modifier = iconModifier)
+            HomeLogo(logoType = logoType, size = iconSize, modifier = logoModifier)
             Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
             Text(
                 title,
@@ -487,6 +477,147 @@ private fun HomeBigCard(
             Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
             Text(count, fontSize = if (compact) 13.sp else 18.sp, color = HomeTextDim)
         }
+    }
+}
+
+
+/**
+ * Reference-style logos (Fix 3, 2026-11-05): drawn to match the AZUL
+ * reference — NOT generic Material icons. LIVE = white TV with antenna +
+ * pink "LIVE" text; Movies = white film reel + purple film strip;
+ * Series = purple clapperboard with white stripes; 4 Screen = grid icon.
+ */
+@Composable
+private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) {
+    when (logoType) {
+        "live" -> LiveLogo(size, modifier)
+        "movie" -> ReelLogo(size, modifier)
+        "series" -> ClapperLogo(size, modifier)
+        else -> Icon(
+            Icons.Filled.GridView,
+            contentDescription = "4 Screen",
+            tint = HomeAccent,
+            modifier = modifier.size(size),
+        )
+    }
+}
+
+@Composable
+private fun LiveLogo(size: Dp, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val cx = w / 2f
+            val dotY = h * 0.10f
+            val armW = (w * 0.02f).coerceAtLeast(2f)
+            // Antenna arms + pink dot where they meet.
+            drawLine(Color.White, Offset(cx - w * 0.30f, h * 0.01f), Offset(cx, dotY), strokeWidth = armW)
+            drawLine(Color.White, Offset(cx + w * 0.30f, h * 0.01f), Offset(cx, dotY), strokeWidth = armW)
+            drawCircle(Color(0xFFE91E63), radius = w * 0.055f, center = Offset(cx, dotY))
+            // White TV body.
+            drawRoundRect(
+                Color.White,
+                topLeft = Offset(w * 0.05f, h * 0.16f),
+                size = Size(w * 0.90f, h * 0.76f),
+                cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+            )
+        }
+        Text(
+            "LIVE",
+            color = Color(0xFFE91E63),
+            fontWeight = FontWeight.Bold,
+            fontSize = (size.value * 0.22f).sp,
+        )
+    }
+}
+
+@Composable
+private fun ReelLogo(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = size.width
+        val h = size.height
+        val c = Offset(w / 2f, h * 0.44f)
+        val r = minOf(w, h) * 0.40f
+        // White reel.
+        drawCircle(Color.White, radius = r, center = c)
+        // 5 holes in a ring + centre hole (dark, like the reference reel).
+        val holeR = r * 0.17f
+        val ringR = r * 0.58f
+        for (i in 0 until 5) {
+            val a = (-90f + i * 72f) * PI.toFloat() / 180f
+            drawCircle(
+                Color(0xFF3A3648),
+                radius = holeR,
+                center = Offset(c.x + ringR * cos(a), c.y + ringR * sin(a)),
+            )
+        }
+        drawCircle(Color(0xFF3A3648), radius = r * 0.20f, center = c)
+        // Purple film strip curling at the bottom.
+        val sw = r * 1.7f
+        val sh = r * 0.46f
+        val sx = c.x - sw / 2f
+        val sy = c.y + r * 0.52f
+        drawRoundRect(
+            HomeAccent,
+            topLeft = Offset(sx, sy),
+            size = Size(sw, sh),
+            cornerRadius = CornerRadius(sh * 0.25f, sh * 0.25f),
+        )
+        val pw = sw / 9f
+        for (i in 0 until 3) {
+            drawRoundRect(
+                Color.White,
+                topLeft = Offset(sx + pw * (1.2f + i * 3f), sy + sh * 0.22f),
+                size = Size(pw, sh * 0.56f),
+                cornerRadius = CornerRadius(2f, 2f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClapperLogo(size: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = size.width
+        val h = size.height
+        val bx = w * 0.08f
+        val by = h * 0.30f
+        val bw = w * 0.84f
+        val bh = h * 0.60f
+        // Purple body.
+        drawRoundRect(
+            HomeAccent,
+            topLeft = Offset(bx, by),
+            size = Size(bw, bh),
+            cornerRadius = CornerRadius(w * 0.07f, w * 0.07f),
+        )
+        // Top slate bar (deeper purple) with white diagonal stripes.
+        val barH = h * 0.20f
+        val barTop = by - barH * 0.55f
+        drawRoundRect(
+            Color(0xFF9333EA),
+            topLeft = Offset(bx, barTop),
+            size = Size(bw, barH),
+            cornerRadius = CornerRadius(w * 0.06f, w * 0.06f),
+        )
+        val sw = bw / 4.5f
+        for (i in 0 until 4) {
+            val x0 = bx + sw * (i + 0.9f)
+            drawLine(
+                Color.White,
+                Offset(x0, barTop),
+                Offset(x0 - sw * 0.55f, barTop + barH),
+                strokeWidth = w * 0.045f,
+            )
+        }
+        // Small white label rect on the body.
+        drawRoundRect(
+            Color.White,
+            topLeft = Offset(bx + bw * 0.36f, by + bh * 0.58f),
+            size = Size(bw * 0.28f, bh * 0.16f),
+            cornerRadius = CornerRadius(2f, 2f),
+        )
     }
 }
 
