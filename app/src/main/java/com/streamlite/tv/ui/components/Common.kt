@@ -192,7 +192,9 @@ private fun ThumbImage(
     ) {
         when (painter.state) {
             is AsyncImagePainter.State.Loading -> {
-                Box(modifier = Modifier.fillMaxSize().background(SlCard))
+                // 2026-11-05 (Batch 8, Point 4): show the letter tile WHILE
+                // loading too — a box must never look blank (news logos).
+                FallbackTile(name, placeholderText, Modifier.fillMaxSize())
             }
             is AsyncImagePainter.State.Error,
             is AsyncImagePainter.State.Empty -> {
