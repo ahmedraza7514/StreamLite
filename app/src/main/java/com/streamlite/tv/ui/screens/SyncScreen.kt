@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +60,10 @@ fun SyncScreen(
     var liveCount by remember { mutableStateOf(0) }
     var vodCount by remember { mutableStateOf(0) }
     var seriesCount by remember { mutableStateOf(0) }
+    // Batch 6, Point 17: thumbnail preload progress (done / total).
+    var thumbDone by remember { mutableStateOf(0) }
+    var thumbTotal by remember { mutableStateOf(0) }
+    val appContext = LocalContext.current.applicationContext
 
     val steps = listOf("LIVE TV", "VOD", "SERIES")
 
@@ -71,12 +76,19 @@ fun SyncScreen(
         liveCount = 0
         vodCount = 0
         seriesCount = 0
+        thumbDone = 0
+        thumbTotal = 0
         scope.launch {
             try {
                 if (session.type == LoginType.XTREAM) {
                     val client = XtreamClient(session.server, session.username, session.password)
                     DataRepository.syncAll(
                         client,
+                        appContext = appContext,
+                        onThumbnailProgress = { d, t ->
+                            // Callback arrives from an IO thread — hop to Main to touch state.
+                            scope.launch { thumbDone = d; thumbTotal = t }
+                        },
                         onProgress = { step ->
                             if (step == "DONE") {
                                 completedSteps = steps.toSet()
@@ -196,7 +208,19 @@ fun SyncScreen(
             }
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Batch 6, Point 17: thumbnail preload runs during sync and keeps
+        // going in the background after — this line shows live progress.
+        if (thumbTotal > 0) {
+            Text(
+                if (thumbDone >= thumbTotal) "Thumbnails ready ✓ ($thumbTotal)"
+                else "Loading thumbnails… $thumbDone / $thumbTotal",
+                fontSize = 14.sp,
+                color = if (thumbDone >= thumbTotal) Color(0xFF4CAF50) else SlTextDim,
+            )
+            Spacer(Modifier.height(16.dp))
+        }
 
         if (error != null) {
             Text(error!!, color = Color(0xFFFF6B6B), fontSize = 15.sp)
