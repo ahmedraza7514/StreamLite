@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.AudioAttributes
 import androidx.media3.ui.PlayerView
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
@@ -279,15 +280,19 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // 2026-11-05 (Batch 8, Point 6): ALL 4 quadrants audible
-                // by default — every screen has sound; the speaker button
-                // mutes/unmutes only THAT quadrant.
-                volume = 1f
+                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
+                // time (click a screen's speaker to hear THAT one). The 4-players-
+                // at-once change is reverted per user instruction.
+                // Audio focus is OFF for these players: Android's focus system
+                // was ducking/pausing quadrants, so only some of the 4 could
+                // ever be heard — the app's own volume control decides now.
+                setAudioAttributes(AudioAttributes.DEFAULT, false)
+                volume = if (idx == 0) 1f else 0f
             }
         }
     }
-    // Per-quadrant mute state (independent for each screen) — all start audible.
-    val mutedStates = remember { List(4) { mutableStateOf(false) } }
+    // Which quadrant has audio (null = all muted). Only one at a time.
+    var audibleIdx by remember { mutableStateOf<Int?>(0) }
     // Per-quadrant pause state (independent for each screen)
     val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
@@ -298,8 +303,10 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     }
 
     fun toggleMute(idx: Int) {
-        mutedStates[idx].value = !mutedStates[idx].value
-        players[idx].volume = if (mutedStates[idx].value) 0f else 1f
+        audibleIdx = if (audibleIdx == idx) null else idx
+        players.forEachIndexed { i, p ->
+            p.volume = if (i == audibleIdx) 1f else 0f
+        }
     }
 
     DisposableEffect(Unit) {
@@ -314,7 +321,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[0],
                 title = channels.getOrNull(0)?.name ?: "",
-                isAudible = !mutedStates[0].value,
+                isAudible = audibleIdx == 0,
                 isPaused = pausedStates[0].value,
                 onTap = { togglePause(0) },
                 onToggleMute = { toggleMute(0) },
@@ -323,7 +330,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[1],
                 title = channels.getOrNull(1)?.name ?: "",
-                isAudible = !mutedStates[1].value,
+                isAudible = audibleIdx == 1,
                 isPaused = pausedStates[1].value,
                 onTap = { togglePause(1) },
                 onToggleMute = { toggleMute(1) },
@@ -335,7 +342,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[2],
                 title = channels.getOrNull(2)?.name ?: "",
-                isAudible = !mutedStates[2].value,
+                isAudible = audibleIdx == 2,
                 isPaused = pausedStates[2].value,
                 onTap = { togglePause(2) },
                 onToggleMute = { toggleMute(2) },
@@ -344,7 +351,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[3],
                 title = channels.getOrNull(3)?.name ?: "",
-                isAudible = !mutedStates[3].value,
+                isAudible = audibleIdx == 3,
                 isPaused = pausedStates[3].value,
                 onTap = { togglePause(3) },
                 onToggleMute = { toggleMute(3) },
@@ -357,7 +364,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Tap a screen to pause it  •  tap the speaker icon to mute its audio",
+                "Tap a screen to pause it  •  tap the speaker icon to hear its audio",
                 fontSize = 13.sp,
                 color = Color.White,
             )
