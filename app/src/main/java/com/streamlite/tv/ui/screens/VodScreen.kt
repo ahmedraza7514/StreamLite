@@ -265,6 +265,7 @@ fun VodScreen(
                                     PosterImage(
                                         m.logo,
                                         Modifier.fillMaxSize(),
+                                        name = m.name,
                                     )
                                 }
                                 Spacer(Modifier.height(6.dp))
