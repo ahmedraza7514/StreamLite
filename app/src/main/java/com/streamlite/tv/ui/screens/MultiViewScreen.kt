@@ -127,10 +127,22 @@ private fun ChannelPicker(
             }
         }
     }
-    var query by remember { mutableStateOf("") }
-    val filtered = remember(query, channels) {
-        if (query.isBlank()) channels
-        else channels.filter { it.name.contains(query, ignoreCase = true) }
+    var query by remember { mutableStateOf("news") }
+    // 2026-11-05 (Batch 8, Point 4): separate OVERALL category search below
+    // the channel search — filters channels by their category name.
+    var catQuery by remember { mutableStateOf("") }
+    val categories = remember { DataRepository.liveCategories ?: emptyList() }
+    val filtered = remember(query, catQuery, channels, categories) {
+        var result = channels
+        if (query.isNotBlank()) {
+            result = result.filter { it.name.contains(query, ignoreCase = true) }
+        }
+        if (catQuery.isNotBlank()) {
+            val catIds = categories.filter { it.name.contains(catQuery, ignoreCase = true) }
+                .map { it.id }.toSet()
+            result = result.filter { it.categoryId in catIds }
+        }
+        result
     }
 
     Column(
@@ -165,6 +177,23 @@ private fun ChannelPicker(
         )
         Spacer(Modifier.height(12.dp))
 
+        // Overall category search (separate field, below the channel search)
+        androidx.compose.foundation.text.BasicTextField(
+            value = catQuery,
+            onValueChange = { catQuery = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0F1E2E), RoundedCornerShape(12.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(color = SlText, fontSize = 15.sp),
+            singleLine = true,
+            decorationBox = { inner ->
+                if (catQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 14.sp)
+                inner()
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+
         if (loadError != null && channels.isEmpty()) {
             Text(
                 loadError!!,
@@ -180,8 +209,18 @@ private fun ChannelPicker(
         ) {
             items(filtered, key = { it.streamId }) { ch ->
                 val isSel = selected.contains(ch)
+                // 2026-11-05 (Batch 8, Point 4): WHITE 3dp border where the
+                // remote selection lands — visible from far, like other screens.
+                var rowFocused by remember { mutableStateOf(false) }
                 Card(
                     onClick = { onToggle(ch) },
+                    modifier = Modifier
+                        .onFocusChanged { rowFocused = it.isFocused }
+                        .border(
+                            width = if (rowFocused) 3.dp else 0.dp,
+                            color = if (rowFocused) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp),
+                        ),
                     shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSel) SlAccent else Color(0xFF0F1E2E),
@@ -240,13 +279,15 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // Only the first quadrant is audible initially
-                volume = if (idx == 0) 1f else 0f
+                // 2026-11-05 (Batch 8, Point 6): ALL 4 quadrants audible
+                // by default — every screen has sound; the speaker button
+                // mutes/unmutes only THAT quadrant.
+                volume = 1f
             }
         }
     }
-    // Which quadrant has audio (null = all muted). Only one at a time.
-    var audibleIdx by remember { mutableStateOf<Int?>(0) }
+    // Per-quadrant mute state (independent for each screen) — all start audible.
+    val mutedStates = remember { List(4) { mutableStateOf(false) } }
     // Per-quadrant pause state (independent for each screen)
     val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
@@ -257,10 +298,8 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     }
 
     fun toggleMute(idx: Int) {
-        audibleIdx = if (audibleIdx == idx) null else idx
-        players.forEachIndexed { i, p ->
-            p.volume = if (i == audibleIdx) 1f else 0f
-        }
+        mutedStates[idx].value = !mutedStates[idx].value
+        players[idx].volume = if (mutedStates[idx].value) 0f else 1f
     }
 
     DisposableEffect(Unit) {
@@ -275,7 +314,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[0],
                 title = channels.getOrNull(0)?.name ?: "",
-                isAudible = audibleIdx == 0,
+                isAudible = !mutedStates[0].value,
                 isPaused = pausedStates[0].value,
                 onTap = { togglePause(0) },
                 onToggleMute = { toggleMute(0) },
@@ -284,7 +323,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[1],
                 title = channels.getOrNull(1)?.name ?: "",
-                isAudible = audibleIdx == 1,
+                isAudible = !mutedStates[1].value,
                 isPaused = pausedStates[1].value,
                 onTap = { togglePause(1) },
                 onToggleMute = { toggleMute(1) },
@@ -296,7 +335,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[2],
                 title = channels.getOrNull(2)?.name ?: "",
-                isAudible = audibleIdx == 2,
+                isAudible = !mutedStates[2].value,
                 isPaused = pausedStates[2].value,
                 onTap = { togglePause(2) },
                 onToggleMute = { toggleMute(2) },
@@ -305,7 +344,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             QuadPlayer(
                 player = players[3],
                 title = channels.getOrNull(3)?.name ?: "",
-                isAudible = audibleIdx == 3,
+                isAudible = !mutedStates[3].value,
                 isPaused = pausedStates[3].value,
                 onTap = { togglePause(3) },
                 onToggleMute = { toggleMute(3) },
@@ -318,7 +357,7 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Tap a screen to pause it  •  tap the speaker icon to hear its audio",
+                "Tap a screen to pause it  •  tap the speaker icon to mute its audio",
                 fontSize = 13.sp,
                 color = Color.White,
             )
