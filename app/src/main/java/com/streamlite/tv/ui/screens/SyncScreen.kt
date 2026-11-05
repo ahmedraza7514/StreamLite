@@ -139,7 +139,8 @@ fun SyncScreen(
     ) {
         Text(
             "Update Media Contents",
-            style = MaterialTheme.typography.headlineMedium,
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
             color = SlText,
             textAlign = TextAlign.Center,
         )
@@ -170,7 +171,7 @@ fun SyncScreen(
                     ) {
                         Text(
                             step,
-                            fontSize = 16.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = SlText,
                         )
@@ -184,22 +185,26 @@ fun SyncScreen(
                                     "SERIES" -> "✓ Done ($seriesCount)"
                                     else -> "✓ Done"
                                 }
-                                Text(countText, fontSize = 14.sp, color = Color(0xFF4CAF50))
+                                Text(countText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
                             }
                             isActive -> {
+                                // 2026-11-05 (Batch 8): "Please wait..." lives INSIDE
+                                // the box that is loading — not below the row.
                                 if (step == "GUIDE" && epgTotal > 0) {
                                     // Real EPG progress: "1234 / 5000"
                                     Text(
                                         "$epgDone / $epgTotal",
-                                        fontSize = 13.sp,
+                                        fontSize = 18.sp,
                                         color = SlAccent,
                                     )
                                 } else {
                                     CircularProgressIndicator(
                                         color = SlAccent,
-                                        modifier = Modifier.height(20.dp).width(20.dp),
+                                        modifier = Modifier.height(28.dp).width(28.dp),
                                     )
                                 }
+                                Spacer(Modifier.height(8.dp))
+                                Text("Please wait...", fontSize = 16.sp, color = SlTextDim)
                             }
                             else -> Text("Waiting...", fontSize = 14.sp, color = SlTextDim)
                         }
@@ -231,8 +236,6 @@ fun SyncScreen(
             ) {
                 Text("Retry", modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp))
             }
-        } else {
-            Text("Please wait.......", fontSize = 16.sp, color = SlTextDim)
         }
 
         Spacer(Modifier.weight(1f))
