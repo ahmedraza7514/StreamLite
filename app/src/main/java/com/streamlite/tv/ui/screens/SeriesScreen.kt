@@ -82,6 +82,8 @@ fun SeriesScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var sortAsc by remember { mutableStateOf(true) }
+    // 2026-11-05 (Batch 7): sidebar category search ("Pakistan", "Cartoon Kids", ...)
+    var catSearchQuery by remember { mutableStateOf("") }
 
     fun loadCategory(catId: String) {
         selectedCat = catId
@@ -131,7 +133,22 @@ fun SeriesScreen(
         ) {
             Text("Series", style = MaterialTheme.typography.headlineSmall, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+            // 2026-11-05 (Batch 7): category search box — filters the sidebar list
+            // so any category is found without scrolling (e.g. "Pakistan").
+            BasicTextField(
+                value = catSearchQuery,
+                onValueChange = { catSearchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                textStyle = TextStyle(color = SlText, fontSize = 14.sp),
+                singleLine = true,
+                decorationBox = { inner -> Box {
+                    if (catSearchQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 13.sp)
+                    inner() } },
+            )
+            Spacer(Modifier.height(12.dp))
             if (categories == null && error == null) {
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
@@ -142,7 +159,10 @@ fun SeriesScreen(
                     item(key = "all") {
                         SeriesSidebarRow("All Series", catCounts?.values?.sum(), selectedCat.isEmpty()) { loadCategory("") }
                     }
-                    items(categories ?: emptyList(), key = { it.id }) { cat ->
+                    // Category search filter (blank query = full list).
+                    val visibleCats = if (catSearchQuery.isBlank()) categories
+                        else categories?.filter { it.name.contains(catSearchQuery, ignoreCase = true) }
+                    items(visibleCats ?: emptyList(), key = { it.id }) { cat ->
                         SeriesSidebarRow(cat.name, catCounts?.get(cat.id), selectedCat == cat.id) { loadCategory(cat.id) }
                     }
                 }
