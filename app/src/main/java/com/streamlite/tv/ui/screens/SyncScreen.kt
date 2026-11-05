@@ -242,7 +242,7 @@ fun SyncScreen(
             modifier = Modifier.padding(bottom = 24.dp),
         ) {
             Text(
-                "Developed By: Ahmed Bukhari 0332 031 3333",
+                "Developed By: Ahmed & Wasif Bukhari",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
