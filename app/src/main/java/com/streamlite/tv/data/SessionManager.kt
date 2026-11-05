@@ -19,6 +19,8 @@ data class LoginSession(
     val username: String = "",
     val password: String = "",
     val m3uUrl: String = "",
+    // 2026-11-05 (Batch 7): account expiration (Unix seconds, 0 = unknown).
+    val expDate: Long = 0,
 ) {
     /** Short label shown in the account switcher. */
     fun label(): String = when (type) {
@@ -56,6 +58,7 @@ class SessionManager(private val context: Context) {
         put("username", username)
         put("password", password)
         put("m3uUrl", m3uUrl)
+        put("expDate", expDate)
     }.toString()
 
     private fun String.toSession(): LoginSession? = try {
@@ -66,6 +69,7 @@ class SessionManager(private val context: Context) {
             username = o.optString("username"),
             password = o.optString("password"),
             m3uUrl = o.optString("m3uUrl"),
+            expDate = o.optLong("expDate", 0L),
         )
     } catch (_: Exception) {
         null
