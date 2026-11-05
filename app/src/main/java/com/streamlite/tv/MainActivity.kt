@@ -53,6 +53,7 @@ import com.streamlite.tv.ui.screens.VodScreen
 import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.data.CrashReporter
 import com.streamlite.tv.ui.theme.SlBackground
+import com.streamlite.tv.ui.theme.SlSurface
 import com.streamlite.tv.ui.theme.StreamLiteTheme
 import com.streamlite.tv.ui.theme.SlText
 import androidx.compose.material3.AlertDialog
