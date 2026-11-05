@@ -22,7 +22,7 @@ object RecentViewsStore {
     fun add(item: RecentItem) {
         _items.removeAll { it.url == item.url }
         _items.add(0, item)
-        while (_items.size > 15) _items.removeLast()
+        while (_items.size > 15) _items.removeAt(_items.lastIndex)
     }
 
     fun clear() = _items.clear()
@@ -37,4 +37,12 @@ object ScrollStateStore {
     val liveGrid = LazyGridState()
     val vodGrid = LazyGridState()
     val seriesGrid = LazyGridState()
+    // 2026-11-05 (Batch 8, Point 1): remember the selected category + sidebar
+    // scroll so back from a player returns to the SAME category, not the top.
+    var liveCat: String = ""
+    var vodCat: String = ""
+    var seriesCat: String = ""
+    val liveSidebar = LazyListState()
+    val vodSidebar = LazyListState()
+    val seriesSidebar = LazyListState()
 }
