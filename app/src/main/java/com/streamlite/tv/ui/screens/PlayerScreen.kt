@@ -179,8 +179,8 @@ fun PlayerScreen(
     val activity = context as? android.app.Activity
 
     // Audio / subtitle track dialogs
-    var showAudioDialog by remember { mutableStateOf(false) }
-    var showSubsDialog by remember { mutableStateOf(false) }
+    var showAudioMenu by remember { mutableStateOf(false) }
+    var showSubsMenu by remember { mutableStateOf(false) }
     // Snapshot of current tracks for the dialogs (refreshed when opened)
     var trackSnapshot by remember { mutableStateOf<Tracks?>(null) }
 
@@ -574,30 +574,134 @@ fun PlayerScreen(
                                 }
                             }
 
-                            // AUDIO tracks
-                            // 2026-11-04 (Batch 5, Point 12): re-clicking AUDIO toggles the dialog closed
-                            LabelButton("AUDIO", onClick = {
-                                if (showAudioDialog) {
-                                    showAudioDialog = false
-                                } else {
-                                    showSubsDialog = false
-                                    try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
-                                    showAudioDialog = true
+                            // AUDIO tracks — 2026-11-05 (Batch 8, Point 3): opens as a
+                            // dropdown menu ANCHORED to the AUDIO button, exactly like
+                            // ZOOM — no separate panel on the screen anymore.
+                            Box {
+                                LabelButton("AUDIO", onClick = {
+                                    if (showAudioMenu) {
+                                        showAudioMenu = false
+                                    } else {
+                                        showSubsMenu = false
+                                        try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                        showAudioMenu = true
+                                    }
+                                    poke()
+                                })
+                                DropdownMenu(
+                                    expanded = showAudioMenu,
+                                    onDismissRequest = { showAudioMenu = false },
+                                    modifier = Modifier.background(Color.Black),
+                                ) {
+                                    val audioGroups = trackSnapshot?.groups
+                                        ?.filter { it.type == C.TRACK_TYPE_AUDIO } ?: emptyList()
+                                    if (audioGroups.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("No tracks available.", color = Color(0xFFAAAAAA), fontSize = 15.sp) },
+                                            onClick = {},
+                                        )
+                                    } else {
+                                        audioGroups.forEach { group ->
+                                            for (i in 0 until group.length) {
+                                                val fmt = group.getTrackFormat(i)
+                                                val label = fmt.label
+                                                    ?: fmt.language?.let { "Lang: $it" }
+                                                    ?: "Track ${i + 1}"
+                                                val selected = group.isSelected && group.length == 1
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            label,
+                                                            color = if (selected) SlAccent else Color.White,
+                                                            fontSize = 15.sp,
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        try {
+                                                            player.trackSelectionParameters = player.trackSelectionParameters
+                                                                .buildUpon()
+                                                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                                                .build()
+                                                        } catch (_: Exception) {}
+                                                        showAudioMenu = false
+                                                        poke()
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                                poke()
-                            })
-                            // SUBS / CC
-                            // 2026-11-04 (Batch 5, Point 12): re-clicking SUBS toggles the dialog closed
-                            LabelButton("SUBS", onClick = {
-                                if (showSubsDialog) {
-                                    showSubsDialog = false
-                                } else {
-                                    showAudioDialog = false
-                                    try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
-                                    showSubsDialog = true
+                            }
+                            // SUBS / CC — same dropdown-on-button pattern as ZOOM/AUDIO
+                            Box {
+                                LabelButton("SUBS", onClick = {
+                                    if (showSubsMenu) {
+                                        showSubsMenu = false
+                                    } else {
+                                        showAudioMenu = false
+                                        try { trackSnapshot = player.currentTracks } catch (_: Exception) {}
+                                        showSubsMenu = true
+                                    }
+                                    poke()
+                                })
+                                DropdownMenu(
+                                    expanded = showSubsMenu,
+                                    onDismissRequest = { showSubsMenu = false },
+                                    modifier = Modifier.background(Color.Black),
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Off", color = Color.White, fontSize = 15.sp) },
+                                        onClick = {
+                                            try {
+                                                player.trackSelectionParameters = player.trackSelectionParameters
+                                                    .buildUpon()
+                                                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                                                    .build()
+                                            } catch (_: Exception) {}
+                                            showSubsMenu = false
+                                            poke()
+                                        },
+                                    )
+                                    val textGroups = trackSnapshot?.groups
+                                        ?.filter { it.type == C.TRACK_TYPE_TEXT } ?: emptyList()
+                                    if (textGroups.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("No tracks available.", color = Color(0xFFAAAAAA), fontSize = 15.sp) },
+                                            onClick = {},
+                                        )
+                                    } else {
+                                        textGroups.forEach { group ->
+                                            for (i in 0 until group.length) {
+                                                val fmt = group.getTrackFormat(i)
+                                                val label = fmt.label
+                                                    ?: fmt.language?.let { "Lang: $it" }
+                                                    ?: "Track ${i + 1}"
+                                                val selected = group.isSelected && group.length == 1
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            label,
+                                                            color = if (selected) SlAccent else Color.White,
+                                                            fontSize = 15.sp,
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        try {
+                                                            player.trackSelectionParameters = player.trackSelectionParameters
+                                                                .buildUpon()
+                                                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                                                .build()
+                                                        } catch (_: Exception) {}
+                                                        showSubsMenu = false
+                                                        poke()
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                                poke()
-                            })
+                            }
                             // VOL + brightness panel
                             LabelButton("VOL", onClick = {
                                 showVbPanel = !showVbPanel
@@ -673,76 +777,6 @@ fun PlayerScreen(
             }
         }
 
-        // ---- Audio track dialog (above the control bar, NOT top of screen) ----
-        // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
-        // toggles closed by re-clicking the AUDIO button
-        if (showAudioDialog) {
-            // 2026-11-05 (Batch 7): SMALL popup above the AUDIO button (right side),
-            // sized to its content — not a big panel in the middle of the screen.
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = 200.dp)
-                    .zIndex(2f),
-            ) {
-                TrackDialog(
-                title = "Audio",
-                tracks = trackSnapshot,
-                type = C.TRACK_TYPE_AUDIO,
-                allowOff = false,
-                onSelect = { group, trackIdx ->
-                    try {
-                        player.trackSelectionParameters = player.trackSelectionParameters
-                            .buildUpon()
-                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
-                            .build()
-                    } catch (_: Exception) {}
-                    showAudioDialog = false
-                },
-                onDismiss = { showAudioDialog = false },
-            )
-            }
-        }
-
-        // ---- Subtitle track dialog (above the control bar, NOT top of screen) ----
-        // 2026-11-04 (Batch 5, Point 12): bottom-anchored just above the bar,
-        // toggles closed by re-clicking the SUBS button
-        if (showSubsDialog) {
-            // 2026-11-05 (Batch 7): SMALL popup above the SUBS button, same as Audio.
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = 200.dp)
-                    .zIndex(2f),
-            ) {
-                TrackDialog(
-                title = "Subtitles",
-                tracks = trackSnapshot,
-                type = C.TRACK_TYPE_TEXT,
-                allowOff = true,
-                onSelect = { group, trackIdx ->
-                    try {
-                        player.trackSelectionParameters = player.trackSelectionParameters
-                            .buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIdx))
-                            .build()
-                    } catch (_: Exception) {}
-                    showSubsDialog = false
-                },
-                onOff = {
-                    try {
-                        player.trackSelectionParameters = player.trackSelectionParameters
-                            .buildUpon()
-                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                            .build()
-                    } catch (_: Exception) {}
-                    showSubsDialog = false
-                },
-                onDismiss = { showSubsDialog = false },
-                )
-            }
-        }
     }
 }
 
@@ -826,99 +860,6 @@ private fun LabelButton(label: String, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        }
-    }
-}
-
-/** Generic audio/subtitle track picker dialog. */
-@Composable
-private fun TrackDialog(
-    title: String,
-    tracks: Tracks?,
-    type: Int,
-    allowOff: Boolean,
-    onSelect: (Tracks.Group, Int) -> Unit,
-    onOff: (() -> Unit)? = null,
-    onDismiss: () -> Unit,
-) {
-    val groups = tracks?.groups?.filter { it.type == type } ?: emptyList()
-    Card(
-        // 2026-11-05 (Batch 7): dialog hugs its content (max 480dp) instead of
-        // stretching 85% across the screen.
-        modifier = Modifier.widthIn(min = 300.dp, max = 480.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF0F1E2E),
-            contentColor = Color.White,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.height(12.dp))
-            if (allowOff && onOff != null) {
-                Card(
-                    onClick = onOff,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF1E3A5F),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Text("Off", fontSize = 15.sp, color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-                }
-            }
-            if (groups.isEmpty()) {
-                Text("No tracks available.", fontSize = 14.sp, color = Color(0xFFAAAAAA),
-                    modifier = Modifier.padding(vertical = 8.dp))
-            } else {
-                groups.forEach { group ->
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        val label = fmt.label
-                            ?: fmt.language?.let { "Lang: $it" }
-                            ?: "Track ${i + 1}"
-                        val selected = group.isSelected && run {
-                            // check if this specific track is the selected one
-                            val sel = group.mediaTrackGroup
-                            // best-effort: highlight if group selected and only one track
-                            group.length == 1
-                        }
-                        Card(
-                            onClick = { onSelect(group, i) },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (selected) SlAccent else Color(0xFF1E3A5F),
-                                contentColor = if (selected) Color.Black else Color.White,
-                            ),
-                        ) {
-                            // 2026-11-05 (Batch 7): explicit color — tv Text ignores the
-                            // Card's contentColor, so unselected tracks were BLACK on dark
-                            // blue and unreadable. Selected = black on bright blue, else white.
-                            Text(label, fontSize = 15.sp,
-                                color = if (selected) Color.Black else Color.White,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Card(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent,
-                    contentColor = Color(0xFFAAAAAA),
-                ),
-            ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center) {
-                    Text("Close", fontSize = 14.sp, color = Color(0xFFAAAAAA))
-                }
-            }
         }
     }
 }
