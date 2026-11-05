@@ -16,8 +16,8 @@ android {
         // re-click + sit above the bar; Volume/Brightness in a horizontal ROW;
         // WHITE 3dp border + scale on channel/movie/series GRID ITEMS.
         // Rule: bump versionCode + versionName on every build that ships changes.
-        versionCode = 7
-        versionName = "2.5"
+        versionCode = 8
+        versionName = "2.6"
     }
 
     buildTypes {
