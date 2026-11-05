@@ -91,6 +91,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -201,6 +206,11 @@ fun PlayerScreen(
 
     // Remote-first: focus lands on play/pause whenever the bar appears
     val playPauseReq = remember { FocusRequester() }
+    // 2026-11-05 (Batch 8 fix): the seekbar ("playbar patti") is selectable
+    // by remote — UP from the transport buttons focuses it, then LEFT/RIGHT
+    // seeks back/forward. Previously it could never get D-pad focus.
+    val seekBarFocus = remember { FocusRequester() }
+    var seekBarFocused by remember { mutableStateOf(false) }
     LaunchedEffect(controlsVisible) {
         if (controlsVisible) {
             try { playPauseReq.requestFocus() } catch (_: Exception) { /* no-op */ }
@@ -252,6 +262,17 @@ fun PlayerScreen(
         exo.play()
         exo
     }
+
+    /** Seek ±10s from the seekbar (remote LEFT/RIGHT while it is focused). */
+    fun seekBy(deltaMs: Long) {
+        try {
+            val target = (player.currentPosition + deltaMs).coerceIn(0L, durationMs)
+            player.seekTo(target)
+            if (durationMs > 0) sliderValue = target.toFloat() / durationMs
+            poke()
+        } catch (_: Exception) {}
+    }
+
 
     // CRASH FIX (2026-11-04): release() can throw if the player is already
     // released or in a bad state — never let it crash the app on back/close.
@@ -362,7 +383,23 @@ fun PlayerScreen(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .zIndex(1f),
+                    .zIndex(1f)
+                    // 2026-11-05 (Batch 8 fix): remote UP selects the seekbar;
+                    // LEFT/RIGHT while it is focused seeks ±10s.
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.DirectionUp -> {
+                                if (hasDuration) {
+                                    try { seekBarFocus.requestFocus() } catch (_: Exception) {}
+                                    true
+                                } else false
+                            }
+                            Key.DirectionLeft -> if (seekBarFocused) { seekBy(-10_000); true } else false
+                            Key.DirectionRight -> if (seekBarFocused) { seekBy(10_000); true } else false
+                            else -> false
+                        }
+                    },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xDD000000),
@@ -374,7 +411,15 @@ fun PlayerScreen(
                     if (hasDuration) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // White border so the user SEES the seekbar is selected.
+                                .border(
+                                    width = if (seekBarFocused) 2.dp else 0.dp,
+                                    color = if (seekBarFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp),
+                                )
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
                         ) {
                             Text(fmt(positionMs), fontSize = 12.sp, color = Color.White)
                             Slider(
@@ -390,7 +435,11 @@ fun PlayerScreen(
                                     sliderDragging = false
                                     poke()
                                 },
-                                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp)
+                                    .focusRequester(seekBarFocus)
+                                    .onFocusChanged { seekBarFocused = it.isFocused },
                             )
                             Text(fmt(durationMs), fontSize = 12.sp, color = Color.White)
                         }
