@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,7 +75,13 @@ fun VodScreen(
     val client = remember { XtreamClient(session.server, session.username, session.password) }
     val scope = rememberCoroutineScope()
     var categories by remember { mutableStateOf<List<XtreamCategory>?>(null) }
-    var selectedCat by remember { mutableStateOf("") }
+    // 2026-11-05 (Batch 8, Point 2): category search in the sidebar
+    var catSearchQuery by remember { mutableStateOf("") }
+    val visibleCats = remember(catSearchQuery, categories) {
+        if (catSearchQuery.isBlank()) categories
+        else categories?.filter { it.name.contains(catSearchQuery, ignoreCase = true) }
+    }
+    var selectedCat by remember { mutableStateOf(ScrollStateStore.vodCat) }
     var movies by remember { mutableStateOf<List<VodStream>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -82,6 +89,7 @@ fun VodScreen(
 
     fun loadCategory(catId: String) {
         selectedCat = catId
+        ScrollStateStore.vodCat = catId
         error = null
         movies = null // show loading
         scope.launch {
@@ -128,18 +136,45 @@ fun VodScreen(
         ) {
             Text("Movies", style = MaterialTheme.typography.headlineSmall, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+            // Category search box (top of the category list)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(10.dp))
+                    .border(1.dp, SlTextDim, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = SlTextDim, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = catSearchQuery,
+                    onValueChange = { catSearchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(color = SlText, fontSize = 15.sp),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        Box {
+                            if (catSearchQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 14.sp)
+                            inner()
+                        }
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             if (categories == null && error == null) {
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                LazyColumn(state = ScrollStateStore.vodSidebar, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     item(key = "recent") {
                         SidebarRow("RECENTLY ADDED", catCounts?.let { 50 }, selectedCat == "recent") { loadCategory("recent") }
                     }
                     item(key = "all") {
                         SidebarRow("All Movies", catCounts?.values?.sum(), selectedCat.isEmpty()) { loadCategory("") }
                     }
-                    items(categories ?: emptyList(), key = { it.id }) { cat ->
+                    items(visibleCats ?: emptyList(), key = { it.id }) { cat ->
                         SidebarRow(cat.name, catCounts?.get(cat.id), selectedCat == cat.id) { loadCategory(cat.id) }
                     }
                 }
