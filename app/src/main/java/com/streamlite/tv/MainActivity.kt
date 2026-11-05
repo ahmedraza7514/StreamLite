@@ -24,8 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.streamlite.tv.data.BufferPrefStore
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.FavItem
@@ -154,14 +152,13 @@ private fun AppRoot() {
     }
 
     if (!booted) {
+        // 2026-11-05 (Batch 7): no "StreamLite" text screen on open — plain dark
+        // background until the splash video starts.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(SlBackground),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("StreamLite", style = MaterialTheme.typography.displaySmall, color = SlAccent)
-        }
+        )
         return
     }
 
