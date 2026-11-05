@@ -49,6 +49,13 @@ class XtreamClient(server: String, username: String, password: String) {
         return info.optString("status") == "Active"
     }
 
+    // 2026-11-05 (Batch 7): account expiration (Unix seconds) from
+    // user_info.exp_date — shown in the home header. 0 = none/unknown.
+    fun expDate(): Long {
+        val root = getJson(apiUrl(""))
+        return root.optJSONObject("user_info")?.optLong("exp_date", 0L) ?: 0L
+    }
+
     // ---------- categories ----------
 
     fun liveCategories(): List<XtreamCategory> = parseCategories(get(apiUrl("get_live_categories")))
