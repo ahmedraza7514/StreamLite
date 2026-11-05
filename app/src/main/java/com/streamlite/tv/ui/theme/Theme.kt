@@ -5,12 +5,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
-val SlBackground = Color(0xFF0B1622)
-val SlSurface = Color(0xFF14273C)
-val SlCard = Color(0xFF1B3249)
-val SlAccent = Color(0xFF00C2FF)
+val SlBackground = Color(0xFF14141F)
+val SlSurface = Color(0xFF232338)
+val SlCard = Color(0xFF2E2E48)
+val SlAccent = Color(0xFFA855F7)
 val SlText = Color(0xFFFFFFFF)
-val SlTextDim = Color(0xFF9FB3C8)
+val SlTextDim = Color(0xFFB0AEC9)
 
 @Composable
 fun StreamLiteTheme(content: @Composable () -> Unit) {
