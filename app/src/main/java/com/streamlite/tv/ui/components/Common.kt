@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -148,9 +152,13 @@ fun MenuCard(
 // a logo failed to load (dead URL, slow 4 Mbps timeout) — that is why most
 // channel icons never appeared. Now: sanitized URL + crossfade + a fallback
 // tile with the channel's first letter, so a box is NEVER blank.
+// 2026-11-05 (Batch 8 fix): the channel box must NEVER show TEXT — the
+// channel's own image thumbnail must load (User-Agent + retry in
+// StreamLiteApp). If a logo truly cannot load, show a TV icon image,
+// never a letter.
 @Composable
 fun ChannelLogo(url: String, modifier: Modifier = Modifier, name: String = "") {
-    ThumbImage(url, name, modifier, ContentScale.Fit, "TV")
+    ThumbImage(url, name, modifier, ContentScale.Fit, "TV", iconFallback = true)
 }
 
 @Composable
@@ -173,10 +181,11 @@ private fun ThumbImage(
     modifier: Modifier,
     contentScale: ContentScale,
     placeholderText: String,
+    iconFallback: Boolean = false,
 ) {
     val clean = cleanImageUrl(url)
     if (clean.isEmpty()) {
-        FallbackTile(name, placeholderText, modifier)
+        if (iconFallback) IconFallback(modifier) else FallbackTile(name, placeholderText, modifier)
         return
     }
     SubcomposeAsyncImage(
@@ -192,13 +201,14 @@ private fun ThumbImage(
     ) {
         when (painter.state) {
             is AsyncImagePainter.State.Loading -> {
-                // 2026-11-05 (Batch 8, Point 4): show the letter tile WHILE
-                // loading too — a box must never look blank (news logos).
-                FallbackTile(name, placeholderText, Modifier.fillMaxSize())
+                // Channel boxes: icon image while loading — never text.
+                if (iconFallback) IconFallback(Modifier.fillMaxSize())
+                else FallbackTile(name, placeholderText, Modifier.fillMaxSize())
             }
             is AsyncImagePainter.State.Error,
             is AsyncImagePainter.State.Empty -> {
-                FallbackTile(name, placeholderText, Modifier.fillMaxSize())
+                if (iconFallback) IconFallback(Modifier.fillMaxSize())
+                else FallbackTile(name, placeholderText, Modifier.fillMaxSize())
             }
             else -> {
                 SubcomposeAsyncImageContent()
@@ -215,5 +225,21 @@ private fun FallbackTile(name: String, placeholderText: String, modifier: Modifi
         contentAlignment = Alignment.Center,
     ) {
         Text(initial, color = SlTextDim, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** Generic TV icon image — the channel-box fallback. An IMAGE, never text. */
+@Composable
+private fun IconFallback(modifier: Modifier) {
+    Box(
+        modifier = modifier.background(SlCard),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.LiveTv,
+            contentDescription = null,
+            tint = SlTextDim,
+            modifier = Modifier.size(48.dp),
+        )
     }
 }
