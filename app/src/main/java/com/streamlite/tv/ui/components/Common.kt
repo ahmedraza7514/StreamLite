@@ -28,7 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.streamlite.tv.ui.theme.SlAccent
 import com.streamlite.tv.ui.theme.SlCard
 import com.streamlite.tv.ui.theme.SlSurface
@@ -138,40 +144,74 @@ fun MenuCard(
     }
 }
 
+// 2026-11-05 (Batch 6, Point 15): bare AsyncImage showed a BLANK box whenever
+// a logo failed to load (dead URL, slow 4 Mbps timeout) — that is why most
+// channel icons never appeared. Now: sanitized URL + crossfade + a fallback
+// tile with the channel's first letter, so a box is NEVER blank.
 @Composable
-fun ChannelLogo(url: String, modifier: Modifier = Modifier) {
-    if (url.isNotEmpty()) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            modifier = modifier,
-            contentScale = ContentScale.Fit,
-        )
-    } else {
-        Box(
-            modifier = modifier.background(SlCard),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("TV", color = SlTextDim, fontSize = 14.sp)
+fun ChannelLogo(url: String, modifier: Modifier = Modifier, name: String = "") {
+    ThumbImage(url, name, modifier, ContentScale.Fit, "TV")
+}
+
+@Composable
+fun PosterImage(url: String, modifier: Modifier = Modifier, name: String = "") {
+    ThumbImage(url, name, modifier, ContentScale.Crop, "No image")
+}
+
+/** Panels sometimes return icon URLs with spaces or trailing junk — Coil
+ *  fails those silently, leaving a blank box. Trim + encode spaces. */
+private fun cleanImageUrl(url: String): String {
+    val t = url.trim()
+    if (t.isEmpty()) return ""
+    return t.replace(" ", "%20")
+}
+
+@Composable
+private fun ThumbImage(
+    url: String,
+    name: String,
+    modifier: Modifier,
+    contentScale: ContentScale,
+    placeholderText: String,
+) {
+    val clean = cleanImageUrl(url)
+    if (clean.isEmpty()) {
+        FallbackTile(name, placeholderText, modifier)
+        return
+    }
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(clean)
+            .crossfade(true)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .build(),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = contentScale,
+    ) {
+        when (painter.state) {
+            is AsyncImagePainter.State.Loading -> {
+                Box(modifier = Modifier.fillMaxSize().background(SlCard))
+            }
+            is AsyncImagePainter.State.Error,
+            is AsyncImagePainter.State.Empty -> {
+                FallbackTile(name, placeholderText, Modifier.fillMaxSize())
+            }
+            else -> {
+                SubcomposeAsyncImageContent()
+            }
         }
     }
 }
 
 @Composable
-fun PosterImage(url: String, modifier: Modifier = Modifier) {
-    if (url.isNotEmpty()) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            modifier = modifier,
-            contentScale = ContentScale.Crop,
-        )
-    } else {
-        Box(
-            modifier = modifier.background(SlCard),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("No image", color = SlTextDim, fontSize = 13.sp)
-        }
+private fun FallbackTile(name: String, placeholderText: String, modifier: Modifier) {
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: placeholderText
+    Box(
+        modifier = modifier.background(SlCard),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(initial, color = SlTextDim, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }
