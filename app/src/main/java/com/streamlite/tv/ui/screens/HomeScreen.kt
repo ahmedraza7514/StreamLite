@@ -14,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,8 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -86,19 +87,24 @@ private val HomeAccent = Color(0xFFA855F7)
 private val HomeTextDim = Color(0xFFB0AEC9)
 
 // 2026-11-05 (Batch 7): AZUL-style home — app logo + name top-left, live
-// date/time + account expiration top-right, big cards (LIVE TV / Movies /
-// Series / 4 Screen) with counts, right column (Multi-Screen / Settings /
-// Account / Log out), "Developed By: Ahmed & Wasif Bukhari" at the bottom.
+// date/time + account expiration top-right, 3 big cards (LIVE TV / Movies /
+// Series) with counts, right column (4 Screen / Settings / Account /
+// Update media), "Developed By: Ahmed & Wasif Bukhari" at the bottom.
+// 2026-11-05 (his order): 4 Screen moved to the side column; the old
+// Multi-Screen row and Log out are removed (Update media = re-sync).
 // Cards POP UP (scale + white border + shadow) on D-pad focus / mouse hover.
-// 2026-11-05 (Fix 3): logos animate ALL the time now (not only on focus —
-// on mobile focus never engages, so nothing moved); on narrow screens
-// (<600dp, mobile) the layout switches to a compact 2x2 grid of small
-// cards + side rows below, so everything fits the phone screen.
+// 2026-11-05 (Fix 3): logos animate ONLY on remote selection (focus) —
+// NEVER always-on (his explicit rule; mobile may not animate at all).
+// On narrow screens (<600dp, mobile) the layout switches to a compact
+// 2x2 grid of small cards + side rows below, so everything fits the
+// phone screen.
 
 @Composable
 fun HomeScreen(
     session: LoginSession,
     onNavigate: (Screen) -> Unit,
+    // Kept for the call site: Log out was removed by his order (2026-11-05),
+    // Update media (re-sync) took its place in the side column.
     onLogout: () -> Unit,
 ) {
     // Live clock (ticks every 20s — minute precision is enough).
@@ -222,12 +228,6 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             compact = true,
                         )
-                        HomeBigCard(
-                                    logoType = "grid",
-                            title = "4 Screen",
-                            count = "• Multi-Screen",
-                            onClick = { onNavigate(Screen.MultiView) },
-                            modifier = Modifier.weight(1f),
                             compact = true,
                         )
                     }
@@ -240,9 +240,11 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // 2026-11-05 (his order): 4 Screen lives in the side
+                    // column now — main cards are only Live TV / Movies / Series.
                     HomeSideRow(
                         icon = Icons.Filled.GridView,
-                        label = "Multi-Screen",
+                        label = "4 Screen",
                         onClick = { onNavigate(Screen.MultiView) },
                     )
                     HomeSideRow(
@@ -255,10 +257,12 @@ fun HomeScreen(
                         label = "Account",
                         onClick = { onNavigate(Screen.Account) },
                     )
+                    // 2026-11-05 (his order): Log out removed; Update media
+                    // (re-sync) takes its place.
                     HomeSideRow(
-                        icon = Icons.Filled.Logout,
-                        label = "Log out",
-                        onClick = onLogout,
+                        icon = Icons.Filled.Refresh,
+                        label = "Update media",
+                        onClick = { onNavigate(Screen.Sync()) },
                     )
                 }
 
@@ -344,15 +348,6 @@ fun HomeScreen(
                                 onClick = { onNavigate(Screen.Series) },
                                 modifier = Modifier.weight(1f),
                             )
-                            // 2026-11-05 (Batch 8 fix): 4th big card — 4 Screen, same
-                            // size and same design as Live TV / Movies / Series.
-                            HomeBigCard(
-                                            logoType = "grid",
-                                title = "4 Screen",
-                                count = "• Multi-Screen",
-                                onClick = { onNavigate(Screen.MultiView) },
-                                modifier = Modifier.weight(1f),
-                            )
                         }
                     }
                     // Right column — reference order first, then the rest of the app.
@@ -361,9 +356,11 @@ fun HomeScreen(
                         // 4 rows in ~360dp of TV height — compact rows + 8dp gaps.
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        // 2026-11-05 (his order): 4 Screen lives in the side
+                        // column now — main cards are only Live TV / Movies / Series.
                         HomeSideRow(
                             icon = Icons.Filled.GridView,
-                            label = "Multi-Screen",
+                            label = "4 Screen",
                             onClick = { onNavigate(Screen.MultiView) },
                         )
                         HomeSideRow(
@@ -376,10 +373,12 @@ fun HomeScreen(
                             label = "Account",
                             onClick = { onNavigate(Screen.Account) },
                         )
+                        // 2026-11-05 (his order): Log out removed; Update media
+                        // (re-sync) takes its place.
                         HomeSideRow(
-                            icon = Icons.Filled.Logout,
-                            label = "Log out",
-                            onClick = onLogout,
+                            icon = Icons.Filled.Refresh,
+                            label = "Update media",
+                            onClick = { onNavigate(Screen.Sync()) },
                         )
                     }
                 }
@@ -402,9 +401,9 @@ fun HomeScreen(
  * Big card (LIVE TV / Movies / Series / 4 Screen): icon on top, bold title,
  * count below. POPS UP on D-pad focus / mouse hover — scale + white border
  * + shadow, like the reference interface.
- * The LOGO animates ALL the time (no focus condition — on mobile focus
- * never engages): LIVE = pulse, Movies reel = spins, Series = wobble,
- * 4 Screen = pulse. NO sound, visual only.
+ * The LOGO animates ONLY while its card has remote selection (focus):
+ * LIVE = pulse, Movies reel = spins, Series = wobble, 4 Screen = pulse.
+ * NEVER always-on (his rule). NO sound, visual only.
  * compact = true on phones: small card (150dp, 48dp icon, 20sp title).
  */
 @Composable
@@ -434,12 +433,15 @@ private fun HomeBigCard(
         animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
         label = "logoWobble",
     )
-    // Always animate — no isFocused gate (Fix 3).
+    // RULE (his, 2026-11-05): logos animate ONLY on remote selection
+    // (focus) — NEVER always-on. Mobile may show no animation at all;
+    // on the TV box only the element under selection animates.
     val iconSize = if (compact) 48.dp else 80.dp
     val logoModifier = when (logoType) {
-        "movie" -> Modifier.rotate(spin)
-        "series" -> Modifier.rotate(wobble).scale(pulse)
-        else -> Modifier.scale(pulse) // live + grid: pulse
+        "movie" -> Modifier.rotate(if (isFocused) spin else 0f)
+        "series" -> Modifier.rotate(if (isFocused) wobble else 0f)
+            .scale(if (isFocused) pulse else 1f)
+        else -> Modifier.scale(if (isFocused) pulse else 1f) // live + grid: pulse
     }
     Card(
         onClick = onClick,
