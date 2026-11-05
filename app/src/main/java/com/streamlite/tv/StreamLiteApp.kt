@@ -6,6 +6,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import okhttp3.OkHttpClient
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 // 2026-11-04: Lightweight mode for 2GB TV boxes — cap Coil's memory cache
@@ -27,6 +28,35 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
                 OkHttpClient.Builder()
                     .connectTimeout(5, TimeUnit.SECONDS)
                     .readTimeout(8, TimeUnit.SECONDS)
+                    // 2026-11-05 (Batch 8 fix): some icon hosts (esp. news logos)
+                    // return 403 to non-browser clients and drop requests on slow
+                    // 4 Mbps — so the REAL image never arrived and only the fallback
+                    // showed. Browser User-Agent + one retry fixes both.
+                    .addInterceptor { chain ->
+                        val req = chain.request().newBuilder()
+                            .header(
+                                "User-Agent",
+                                "Mozilla/5.0 (Linux; Android 11; Android TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+                            )
+                            .build()
+                        var lastError: IOException? = null
+                        var response: okhttp3.Response? = null
+                        repeat(2) { _ ->
+                            if (response != null) return@repeat
+                            try {
+                                val resp = chain.proceed(req)
+                                // 404 etc. = permanent, don't retry. 5xx = retry once.
+                                if (resp.isSuccessful || resp.code < 500) {
+                                    response = resp
+                                } else {
+                                    resp.close()
+                                }
+                            } catch (e: IOException) {
+                                lastError = e
+                            }
+                        }
+                        response ?: throw (lastError ?: IOException("Image request failed"))
+                    }
                     .build()
             }
             .diskCache {
