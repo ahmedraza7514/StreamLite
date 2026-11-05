@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +78,7 @@ fun SeriesScreen(
     val client = remember { XtreamClient(session.server, session.username, session.password) }
     val scope = rememberCoroutineScope()
     var categories by remember { mutableStateOf<List<XtreamCategory>?>(null) }
-    var selectedCat by remember { mutableStateOf("") }
+    var selectedCat by remember { mutableStateOf(ScrollStateStore.seriesCat) }
     var series by remember { mutableStateOf<List<SeriesItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -87,6 +88,7 @@ fun SeriesScreen(
 
     fun loadCategory(catId: String) {
         selectedCat = catId
+        ScrollStateStore.seriesCat = catId
         error = null
         series = null // show loading
         scope.launch {
@@ -134,25 +136,35 @@ fun SeriesScreen(
             Text("Series", style = MaterialTheme.typography.headlineSmall, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(12.dp))
-            // 2026-11-05 (Batch 7): category search box — filters the sidebar list
-            // so any category is found without scrolling (e.g. "Pakistan").
-            BasicTextField(
-                value = catSearchQuery,
-                onValueChange = { catSearchQuery = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            // 2026-11-05 (Batch 8): category search box made PROMINENT — search
+            // icon + visible border so it is easy to spot at the top of the list.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
                     .background(Color(0xFF0F1E2E), RoundedCornerShape(10.dp))
+                    .border(1.dp, SlTextDim, RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 10.dp),
-                textStyle = TextStyle(color = SlText, fontSize = 14.sp),
-                singleLine = true,
-                decorationBox = { inner -> Box {
-                    if (catSearchQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 13.sp)
-                    inner() } },
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = SlTextDim, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = catSearchQuery,
+                    onValueChange = { catSearchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(color = SlText, fontSize = 15.sp),
+                    singleLine = true,
+                    decorationBox = { inner -> Box {
+                        if (catSearchQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 14.sp)
+                        inner() } },
+                )
+            }
             Spacer(Modifier.height(12.dp))
             if (categories == null && error == null) {
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                LazyColumn(state = ScrollStateStore.seriesSidebar, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     item(key = "recent") {
                         SeriesSidebarRow("RECENTLY ADDED", catCounts?.let { 50 }, selectedCat == "recent") { loadCategory("recent") }
                     }
