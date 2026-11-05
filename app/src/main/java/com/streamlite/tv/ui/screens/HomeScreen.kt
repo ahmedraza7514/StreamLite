@@ -1,6 +1,8 @@
 package com.streamlite.tv.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,9 +24,7 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,7 +69,7 @@ import kotlinx.coroutines.withContext
 // 2026-11-05 (Batch 7): AZUL-style home — app logo + name top-left, live
 // date/time + account expiration top-right, three big horizontal cards
 // (LIVE TV / Movies / Series) with counts, right column (Catch up /
-// Multi-Screen / Settings / Search / Favorites / Account / Log out),
+// Multi-Screen / Settings / Account / Log out),
 // "Developed By: Ahmed & Wasif Bukhari" at the bottom. Cards POP UP
 // (scale + white border + shadow) on D-pad focus / mouse hover.
 
@@ -215,16 +214,6 @@ fun HomeScreen(
                     onClick = { onNavigate(Screen.Settings) },
                 )
                 HomeSideRow(
-                    icon = Icons.Filled.Search,
-                    label = "Search",
-                    onClick = { onNavigate(Screen.Search) },
-                )
-                HomeSideRow(
-                    icon = Icons.Filled.Star,
-                    label = "Favorites",
-                    onClick = { onNavigate(Screen.Favorites) },
-                )
-                HomeSideRow(
                     icon = Icons.Filled.Person,
                     label = "Account",
                     onClick = { onNavigate(Screen.Account) },
@@ -264,10 +253,17 @@ private fun HomeBigCard(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.08f else 1f, label = "homeBigCardScale")
+    // 2026-11-05 (Batch 8, Point 5): logo ANIMATES (spring pop) when the
+    // remote selection lands on the card — LIVE / Movies / Series.
+    val iconScale by animateFloatAsState(
+        if (isFocused) 1.22f else 1f,
+        animationSpec = spring(dampingRatio = 0.35f, stiffness = 300f),
+        label = "homeCardIconPop",
+    )
     Card(
         onClick = onClick,
         modifier = modifier
-            .height(230.dp)
+            .height(280.dp)
             .onFocusChanged { isFocused = it.isFocused }
             .scale(scale)
             .border(
@@ -289,11 +285,11 @@ private fun HomeBigCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, contentDescription = title, tint = SlAccent, modifier = Modifier.size(64.dp))
+            Icon(icon, contentDescription = title, tint = SlAccent, modifier = Modifier.size(80.dp).scale(iconScale))
             Spacer(Modifier.height(16.dp))
-            Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(6.dp))
-            Text(count, fontSize = 14.sp, color = SlTextDim)
+            Text(count, fontSize = 18.sp, color = SlTextDim)
         }
     }
 }
@@ -333,7 +329,7 @@ private fun HomeSideRow(
         ) {
             Icon(icon, contentDescription = label, tint = SlAccent, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))
-            Text(label, fontSize = 16.sp, color = Color.White)
+            Text(label, fontSize = 18.sp, color = Color.White)
         }
     }
 }
