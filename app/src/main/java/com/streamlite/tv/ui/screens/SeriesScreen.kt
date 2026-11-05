@@ -244,6 +244,7 @@ fun SeriesScreen(
                                     PosterImage(
                                         s.cover,
                                         Modifier.fillMaxSize(),
+                                        name = s.name,
                                     )
                                 }
                                 Spacer(Modifier.height(6.dp))
@@ -350,7 +351,7 @@ fun SeriesDetailScreen(
             i == null -> LoadingBox()
             else -> {
                 Row {
-                    PosterImage(i.cover, Modifier.width(150.dp).aspectRatio(2f / 3f))
+                    PosterImage(i.cover, Modifier.width(150.dp).aspectRatio(2f / 3f), name = title)
                     Spacer(Modifier.width(20.dp))
                     Column(Modifier.weight(1f)) {
                         Text(title, style = MaterialTheme.typography.headlineSmall, color = SlText)
