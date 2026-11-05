@@ -139,7 +139,7 @@ private fun AppRoot() {
     var lastBackPress by remember { mutableStateOf(0L) }
     BackHandler(enabled = booted) {
         if (navStack.size > 1) {
-            navStack.removeLast()
+            navStack.removeAt(navStack.lastIndex)
         } else {
             val now = System.currentTimeMillis()
             if (now - lastBackPress < 2000) {
@@ -252,14 +252,14 @@ private fun AppRoot() {
         is Screen.Login -> LoginScreen(sessionManager, ::goHome)
         is Screen.AddAccount -> LoginScreen(
             sessionManager,
-            onLoggedIn = { navStack.removeLast() }, // back to Account screen
+            onLoggedIn = { navStack.removeAt(navStack.lastIndex) }, // back to Account screen
             addMode = true,
         )
         is Screen.Home -> HomeScreen(session!!, navStack::add, ::logout)
         is Screen.Sync -> SyncScreen(
             session!!,
             onSyncComplete = {
-                if (s.popAfter) navStack.removeLast() else goHomeAfterSync()
+                if (s.popAfter) navStack.removeAt(navStack.lastIndex) else goHomeAfterSync()
             },
         )
         is Screen.LiveTv -> LiveTvScreen(session!!, m3uCache, ::play)
@@ -272,13 +272,13 @@ private fun AppRoot() {
             s.url, s.title, s.playlist, s.startIndex, s.info,
             isLive = s.isLive, kind = s.kind,
             // 2026-11-04 (Batch 3, Point 2): back from player pops to previous screen.
-            onBack = { navStack.removeLast() },
+            onBack = { navStack.removeAt(navStack.lastIndex) },
         )
         is Screen.MultiView -> MultiViewScreen(
             session!!,
             // 2026-11-04 (Batch 4, Point 9): back from 4-screen returns to last
             // screen/category — never closes the whole app.
-            onBack = { navStack.removeLast() },
+            onBack = { navStack.removeAt(navStack.lastIndex) },
         )
         is Screen.Search -> SearchScreen(
             session = session!!,
@@ -293,7 +293,7 @@ private fun AppRoot() {
             active = session,
             onSwitch = ::switchAccount,
             onAdd = { navStack.add(Screen.AddAccount) },
-            onBack = { navStack.removeLast() },
+            onBack = { navStack.removeAt(navStack.lastIndex) },
         )
         is Screen.Settings -> SettingsScreen(
             onAccount = { navStack.add(Screen.Account) },
