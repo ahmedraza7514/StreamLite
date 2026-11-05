@@ -1,6 +1,8 @@
 package com.streamlite.tv
 
+import android.app.Activity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -81,8 +83,14 @@ private fun AppRoot() {
         crashReport = withContext(Dispatchers.IO) { CrashReporter.takeReport(context) }
     }
     if (crashReport != null) {
+        // 2026-11-05 (Batch 6, Point 16): the old dialog used the default LIGHT
+        // container with WHITE text — a white box with unreadable white text
+        // on the TV box. Dark container + white text = readable.
         AlertDialog(
             onDismissRequest = { crashReport = null },
+            containerColor = SlSurface,
+            titleContentColor = SlText,
+            textContentColor = SlText,
             title = { androidx.compose.material3.Text("Crash report", color = SlText) },
             text = {
                 androidx.compose.material3.Text(
@@ -92,7 +100,7 @@ private fun AppRoot() {
                 )
             },
             confirmButton = { TextButton(onClick = { crashReport = null }) {
-                androidx.compose.material3.Text("Close", color = SlText)
+                androidx.compose.material3.Text("Close", color = SlAccent)
             } },
         )
     }
@@ -125,8 +133,23 @@ private fun AppRoot() {
     // it pops to the previous screen (channel list, home, ...). The player
     // crash on back-press (white dialog) is fixed in PlayerScreen via
     // guarded release()/ticker; this handler just pops the stack.
-    BackHandler(enabled = booted && navStack.size > 1) {
-        navStack.removeLast()
+    // 2026-11-05 (Batch 6, Point 16): on the TV box one back press was
+    // closing the WHOLE app. Now the handler stays registered whenever the
+    // app is booted, and on Home a single back only shows a hint — the app
+    // exits only on a SECOND back press within 2 seconds (XCIPTV-style).
+    var lastBackPress by remember { mutableStateOf(0L) }
+    BackHandler(enabled = booted) {
+        if (navStack.size > 1) {
+            navStack.removeLast()
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPress < 2000) {
+                (context as? Activity)?.finish()
+            } else {
+                lastBackPress = now
+                Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     if (!booted) {
