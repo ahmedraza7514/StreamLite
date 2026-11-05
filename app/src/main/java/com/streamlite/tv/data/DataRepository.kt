@@ -68,7 +68,7 @@ object DataRepository {
                 }
             }.awaitAll()
         }
-        vodCatCounts = vodResults.toMap { (id, list) -> id to list.size }
+        vodCatCounts = vodResults.associate { (id, list) -> id to list.size }
         vodTotalCount = vodResults.sumOf { it.second.size }
         val vodLogos = vodResults.flatMap { (_, list) -> list.map { it.logo } }
 
@@ -91,7 +91,7 @@ object DataRepository {
                 }
             }.awaitAll()
         }
-        seriesCatCounts = seriesResults.toMap { (id, list) -> id to list.size }
+        seriesCatCounts = seriesResults.associate { (id, list) -> id to list.size }
         seriesTotalCount = seriesResults.sumOf { it.second.size }
         val seriesCovers = seriesResults.flatMap { (_, list) -> list.map { it.cover } }
 
