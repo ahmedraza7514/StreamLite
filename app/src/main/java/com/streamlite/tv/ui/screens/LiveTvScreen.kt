@@ -446,7 +446,7 @@ private fun ChannelRow(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChannelLogo(item.logo, Modifier.width(84.dp).height(48.dp))
+            ChannelLogo(item.logo, Modifier.width(84.dp).height(48.dp), name = item.name)
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.name, fontSize = 17.sp, color = SlText, maxLines = 1)
@@ -509,6 +509,7 @@ private fun ChannelGridCard(
                 ChannelLogo(
                     item.logo,
                     Modifier.fillMaxSize(),
+                    name = item.name,
                 )
             }
             Spacer(Modifier.height(6.dp))
