@@ -228,8 +228,6 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f),
                             compact = true,
                         )
-                            compact = true,
-                        )
                     }
                 }
 
@@ -505,8 +503,8 @@ private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun LiveLogo(size: Dp, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+private fun LiveLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.size(logoSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
@@ -529,14 +527,14 @@ private fun LiveLogo(size: Dp, modifier: Modifier = Modifier) {
             "LIVE",
             color = Color(0xFFE91E63),
             fontWeight = FontWeight.Bold,
-            fontSize = (size.value * 0.22f).sp,
+            fontSize = (logoSize.value * 0.22f).sp,
         )
     }
 }
 
 @Composable
-private fun ReelLogo(size: Dp, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(size)) {
+private fun ReelLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(logoSize)) {
         val w = size.width
         val h = size.height
         val c = Offset(w / 2f, h * 0.44f)
@@ -579,8 +577,8 @@ private fun ReelLogo(size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ClapperLogo(size: Dp, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(size)) {
+private fun ClapperLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(logoSize)) {
         val w = size.width
         val h = size.height
         val bx = w * 0.08f
