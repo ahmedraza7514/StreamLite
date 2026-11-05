@@ -1,5 +1,6 @@
 package com.streamlite.tv.ui.screens
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.compose.animation.core.tween
