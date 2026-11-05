@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -92,7 +94,13 @@ fun LiveTvScreen(
         } else null
     }
     var categories by remember { mutableStateOf<List<XtreamCategory>?>(null) }
-    var selectedCat by remember { mutableStateOf("") } // "" = All
+    // 2026-11-05 (Batch 8, Point 2): category search in the sidebar
+    var catSearchQuery by remember { mutableStateOf("") }
+    val visibleCats = remember(catSearchQuery, categories) {
+        if (catSearchQuery.isBlank()) categories
+        else categories?.filter { it.name.contains(catSearchQuery, ignoreCase = true) }
+    }
+    var selectedCat by remember { mutableStateOf(ScrollStateStore.liveCat) } // "" = All
     var channels by remember { mutableStateOf<List<ChannelItem>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -105,6 +113,7 @@ fun LiveTvScreen(
 
     fun loadXtreamCategory(catId: String) {
         selectedCat = catId
+        ScrollStateStore.liveCat = catId
         error = null
         // Local filter over prefetched streams — instant, zero network (XCIPTV model)
         val src = allStreams
@@ -115,6 +124,7 @@ fun LiveTvScreen(
 
     fun applyM3uFilter(group: String) {
         selectedCat = group
+        ScrollStateStore.liveCat = group
         val all = m3uAll ?: emptyList()
         val filtered = if (group.isEmpty()) all else all.filter { it.group == group }
         channels = filtered.mapIndexed { idx, c -> ChannelItem(idx, c.name, c.logo, c.group, c.url) }
@@ -196,11 +206,39 @@ fun LiveTvScreen(
                 color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+            // Category search box (top of the category list)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .background(Color(0xFF0F1E2E), RoundedCornerShape(10.dp))
+                    .border(1.dp, SlTextDim, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = SlTextDim, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = catSearchQuery,
+                    onValueChange = { catSearchQuery = it },
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(color = SlText, fontSize = 15.sp),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        Box {
+                            if (catSearchQuery.isEmpty()) Text("Search category...", color = SlTextDim, fontSize = 14.sp)
+                            inner()
+                        }
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             if (categories == null && error == null) {
                 Box(Modifier.padding(horizontal = 20.dp)) { LoadingBox() }
             } else {
                 LazyColumn(
+                    state = ScrollStateStore.liveSidebar,
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -215,7 +253,7 @@ fun LiveTvScreen(
                             },
                         )
                     }
-                    items(categories ?: emptyList(), key = { it.id }) { cat ->
+                    items(visibleCats ?: emptyList(), key = { it.id }) { cat ->
                         SidebarCategoryRow(
                             name = cat.name,
                             count = catCounts[cat.id] ?: 0,
@@ -501,7 +539,9 @@ private fun ChannelGridCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(96.dp)
+                    // 2026-11-05 (Batch 8, Point 4): SAME poster size as VOD &
+                    // Series (2:3) — Live TV icons were too small.
+                    .aspectRatio(2f / 3f)
                     .background(Color(0xFF0F1E2E), RoundedCornerShape(8.dp))
                     .padding(8.dp),
                 contentAlignment = Alignment.Center,
@@ -515,7 +555,7 @@ private fun ChannelGridCard(
             Spacer(Modifier.height(6.dp))
             Text(
                 item.name,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
