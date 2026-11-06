@@ -33,7 +33,6 @@ package com.streamlite.tv.ui.screens
 //    which killed the app on back-press/close (white error dialog).
 // ============================================================================
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -152,11 +151,10 @@ fun PlayerScreen(
     thumb: String = "",
     isLive: Boolean = false,
     kind: String = "live",
-    onBack: () -> Unit = {},
 ) {
-    // 2026-11-04 (Batch 3, Point 2): Back inside the player pops to the
-    // previous screen — never kills the app.
-    BackHandler { onBack() }
+    // v2.12: back is owned by the single global handler in MainActivity —
+    // the player's own BackHandler is removed (split handlers + unguarded
+    // pops could empty the stack and close the app on one back press).
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
