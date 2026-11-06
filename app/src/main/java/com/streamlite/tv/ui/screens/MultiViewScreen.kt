@@ -271,6 +271,17 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val players = remember {
         List(4) { idx ->
             PlayerFactory.create(context).apply {
+                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
+                // time (click a screen's speaker to hear THAT one). The 4-players-
+                // at-once change is reverted per user instruction.
+                // Audio focus is OFF for these players: Android's focus system
+                // was ducking/pausing quadrants, so only some of the 4 could
+                // ever be heard — the app's own volume control decides now.
+                // v2.13: audio settings go FIRST, before setMediaItem/prepare.
+                // They were set AFTER playback started, and on some devices
+                // the audio track then stayed silent (no channel had sound).
+                setAudioAttributes(AudioAttributes.DEFAULT, false)
+                volume = if (idx == 0) 1f else 0f
                 val ch = channels.getOrNull(idx)
                 if (ch != null) {
                     val url = client.liveHlsUrl(ch.streamId)
@@ -278,19 +289,16 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
-                // time (click a screen's speaker to hear THAT one). The 4-players-
-                // at-once change is reverted per user instruction.
-                // Audio focus is OFF for these players: Android's focus system
-                // was ducking/pausing quadrants, so only some of the 4 could
-                // ever be heard — the app's own volume control decides now.
-                setAudioAttributes(AudioAttributes.DEFAULT, false)
-                volume = if (idx == 0) 1f else 0f
             }
         }
     }
     // Which quadrant has audio (null = all muted). Only one at a time.
     var audibleIdx by remember { mutableStateOf<Int?>(0) }
+    // v2.13: re-assert the volumes once the players exist, so quadrant 0 is
+    // definitely the audible one even if creation order raced.
+    LaunchedEffect(Unit) {
+        players.forEachIndexed { i, p -> p.volume = if (i == 0) 1f else 0f }
+    }
     // Per-quadrant pause state (independent for each screen)
     val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
@@ -304,6 +312,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
         audibleIdx = if (audibleIdx == idx) null else idx
         players.forEachIndexed { i, p ->
             p.volume = if (i == audibleIdx) 1f else 0f
+            // v2.13: make sure the newly audible quadrant is actually
+            // playing (it may have been paused by a tap earlier).
+            if (i == audibleIdx) p.playWhenReady = true
         }
     }
 
@@ -356,17 +367,8 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 modifier = Modifier.weight(1f),
             )
         }
-        // Hint bar
-        Box(
-            modifier = Modifier.fillMaxWidth().background(Color(0xAA000000)).padding(8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                "Tap a screen to pause it  •  tap the speaker icon to hear its audio",
-                fontSize = 13.sp,
-                color = Color.White,
-            )
-        }
+        // v2.13: hint bar REMOVED per user request — no text under the
+        // 4 screens anymore.
     }
 }
 
