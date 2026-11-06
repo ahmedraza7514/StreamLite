@@ -12,13 +12,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -99,7 +99,8 @@ private val HomeTextDim = Color(0xFFB0AEC9)
 // Update media), "Developed By: Ahmed & Wasif Bukhari" at the bottom.
 // 2026-11-05 (his order): 4 Screen moved to the side column; the old
 // Multi-Screen row and Log out are removed (Update media = re-sync).
-// Cards POP UP (scale + white border + shadow) on D-pad focus / mouse hover.
+// Cards POP UP (scale + shadow) on D-pad focus / mouse hover — NO border
+// anywhere (the reference home has no border on any element).
 // 2026-11-05 (Fix 3): logos animate ONLY on remote selection (focus) —
 // NEVER always-on (his explicit rule; mobile may not animate at all).
 // On narrow screens (<600dp, mobile) the layout switches to a compact
@@ -404,8 +405,8 @@ fun HomeScreen(
 
 /**
  * Big card (LIVE TV / Movies / Series / 4 Screen): icon on top, bold title,
- * count below. POPS UP on D-pad focus / mouse hover — scale + white border
- * + shadow, like the reference interface.
+ * count below. POPS UP on D-pad focus / mouse hover — scale + shadow, NO
+ * border (the reference home has no border on any element).
  * The LOGO animates ONLY while its card has remote selection (focus):
  * LIVE = pulse, Movies reel = spins, Series = wobble, 4 Screen = pulse.
  * NEVER always-on (his rule). NO sound, visual only.
@@ -451,14 +452,14 @@ private fun HomeBigCard(
     Card(
         onClick = onClick,
         modifier = modifier
-            .height(if (compact) 150.dp else 280.dp)
+            // v2.12 (home fix): the reference home has NO border on any
+            // element — the white focus border is removed; focus is shown
+            // by the scale pop + elevation only. Cards are TALL (they fill
+            // the row height) like the reference — the old fixed 280dp
+            // was too short.
+            .then(if (compact) Modifier.height(150.dp) else Modifier.fillMaxHeight())
             .onFocusChanged { isFocused = it.isFocused }
-            .scale(scale)
-            .border(
-                width = if (isFocused) 3.dp else 0.dp,
-                color = Color.White,
-                shape = RoundedCornerShape(20.dp),
-            ),
+            .scale(scale),
         colors = CardDefaults.cardColors(
             containerColor = HomeCard,
             contentColor = Color.White,
@@ -662,7 +663,7 @@ private fun ClapperLogo(logoSize: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/** Right-column row (icon + label), same popup-on-focus behaviour. */
+/** Right-column row (icon + label), same popup-on-focus behaviour — NO border. */
 @Composable
 private fun HomeSideRow(
     icon: ImageVector,
@@ -676,12 +677,7 @@ private fun HomeSideRow(
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { isFocused = it.isFocused }
-            .scale(scale)
-            .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = Color.White,
-                shape = RoundedCornerShape(14.dp),
-            ),
+            .scale(scale),
         colors = CardDefaults.cardColors(
             containerColor = HomeSurface,
             contentColor = Color.White,
