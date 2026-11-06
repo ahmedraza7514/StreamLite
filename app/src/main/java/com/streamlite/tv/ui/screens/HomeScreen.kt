@@ -287,9 +287,14 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 40.dp, vertical = 28.dp),
+                    // v2.13: tighter vertical padding so the main cards get
+                    // more height (user asked for TALLER cards, like the
+                    // reference — the header may shrink to make room).
+                    .padding(horizontal = 40.dp, vertical = 20.dp),
             ) {
                 // ---- HEADER: logo + app name (left), date/time + expiration (right) ----
+                // v2.13: header shrunk (logo 56→40dp, title 30→24sp) to give
+                // the 3 main cards more height, per user instruction.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -297,30 +302,30 @@ fun HomeScreen(
                     Image(
                         painter = painterResource(R.drawable.ic_launcher_foreground),
                         contentDescription = "A.R. Xtream IPTV logo",
-                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),
                     )
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         "A.R. Xtream IPTV",
-                        fontSize = 30.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = HomeAccent,
                     )
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(dateText, fontSize = 16.sp, color = Color.White)
+                        Text(dateText, fontSize = 14.sp, color = Color.White)
                         if (expText != null) {
                             Text(
                                 expText,
-                                fontSize = 14.sp,
+                                fontSize = 12.sp,
                                 color = HomeTextDim,
-                                modifier = Modifier.padding(top = 4.dp),
+                                modifier = Modifier.padding(top = 2.dp),
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // ---- MAIN ROW: big cards (left) + right column ----
                 Row(
@@ -389,10 +394,11 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(Modifier.height(20.dp))
+                // v2.13: tighter footer so the main cards get more height.
+                Spacer(Modifier.height(12.dp))
                 Text(
                     "Developed By: Ahmed & Wasif Bukhari",
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     textAlign = TextAlign.Center,
@@ -442,7 +448,8 @@ private fun HomeBigCard(
     // RULE (his, 2026-11-05): logos animate ONLY on remote selection
     // (focus) — NEVER always-on. Mobile may show no animation at all;
     // on the TV box only the element under selection animates.
-    val iconSize = if (compact) 48.dp else 80.dp
+    // v2.13: logo bigger on TV (80→96dp) so the taller cards don't look empty.
+    val iconSize = if (compact) 48.dp else 96.dp
     val logoModifier = when (logoType) {
         "movie" -> Modifier.rotate(if (isFocused) spin else 0f)
         "series" -> Modifier.rotate(if (isFocused) wobble else 0f)
