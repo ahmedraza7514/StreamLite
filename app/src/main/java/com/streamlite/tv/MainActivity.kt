@@ -128,16 +128,19 @@ private fun AppRoot() {
         booted = true
     }
 
-    // 2026-11-04 (Batch 2): Back NEVER kills the app while screens remain —
-    // it pops to the previous screen (channel list, home, ...). The player
-    // crash on back-press (white dialog) is fixed in PlayerScreen via
-    // guarded release()/ticker; this handler just pops the stack.
-    // 2026-11-05 (Batch 6, Point 16): on the TV box one back press was
-    // closing the WHOLE app. Now the handler stays registered whenever the
-    // app is booted, and on Home a single back only shows a hint — the app
-    // exits only on a SECOND back press within 2 seconds (XCIPTV-style).
+    // 2026-11-06 (v2.12): ONE guarded back handler owns EVERY back press.
+    // Before, back was handled in 4 places (this global handler + a
+    // BackHandler in PlayerScreen, MultiViewScreen and AccountScreen), each
+    // calling an UNGUARDED removeAt(lastIndex) — if the stack ever emptied,
+    // navStack.last() crashed and the app vanished, which looks exactly
+    // like "one back press closes the app". The double-back timer also
+    // leaked across navigation (back on Home, then navigate, then back
+    // again within 2s exited the app). Now: pop only when a previous
+    // screen exists; on Home a single back only shows a hint and the app
+    // exits only on a SECOND back within 2 seconds; the timer resets the
+    // moment the user navigates to another screen.
     var lastBackPress by remember { mutableStateOf(0L) }
-    BackHandler(enabled = booted) {
+    fun popOrExit() {
         if (navStack.size > 1) {
             navStack.removeAt(navStack.lastIndex)
         } else {
@@ -150,6 +153,11 @@ private fun AppRoot() {
             }
         }
     }
+    // The double-back timer must not survive navigation.
+    LaunchedEffect(navStack.size) {
+        if (navStack.size > 1) lastBackPress = 0L
+    }
+    BackHandler(enabled = booted) { popOrExit() }
 
     if (!booted) {
         // 2026-11-05 (Batch 7): no "StreamLite" text screen on open — plain dark
@@ -241,6 +249,18 @@ private fun AppRoot() {
         play(item.url, item.title)
     }
 
+    // Safety net: the stack must never be empty — a crash here looks like
+    // the app closing on its own. If it ever empties, go back to Home.
+    if (navStack.isEmpty()) {
+        LaunchedEffect(Unit) { navStack.add(Screen.Home) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SlBackground),
+        )
+        return
+    }
+
     when (val s = navStack.last()) {
         is Screen.Splash -> SplashScreen(
             onFinished = {
@@ -259,7 +279,11 @@ private fun AppRoot() {
         is Screen.Sync -> SyncScreen(
             session!!,
             onSyncComplete = {
-                if (s.popAfter) navStack.removeAt(navStack.lastIndex) else goHomeAfterSync()
+                // Guarded pop: never empty the stack (an empty stack used
+                // to crash the app on back-press).
+                if (s.popAfter) {
+                    if (navStack.size > 1) navStack.removeAt(navStack.lastIndex)
+                } else goHomeAfterSync()
             },
         )
         is Screen.LiveTv -> LiveTvScreen(session!!, m3uCache, ::play)
@@ -271,15 +295,8 @@ private fun AppRoot() {
         is Screen.Player -> PlayerScreen(
             s.url, s.title, s.playlist, s.startIndex, s.info,
             isLive = s.isLive, kind = s.kind,
-            // 2026-11-04 (Batch 3, Point 2): back from player pops to previous screen.
-            onBack = { navStack.removeAt(navStack.lastIndex) },
         )
-        is Screen.MultiView -> MultiViewScreen(
-            session!!,
-            // 2026-11-04 (Batch 4, Point 9): back from 4-screen returns to last
-            // screen/category — never closes the whole app.
-            onBack = { navStack.removeAt(navStack.lastIndex) },
-        )
+        is Screen.MultiView -> MultiViewScreen(session!!)
         is Screen.Search -> SearchScreen(
             session = session!!,
             m3uChannels = m3uCache.value,
@@ -293,7 +310,6 @@ private fun AppRoot() {
             active = session,
             onSwitch = ::switchAccount,
             onAdd = { navStack.add(Screen.AddAccount) },
-            onBack = { navStack.removeAt(navStack.lastIndex) },
         )
         is Screen.Settings -> SettingsScreen(
             onAccount = { navStack.add(Screen.Account) },
