@@ -271,17 +271,6 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val players = remember {
         List(4) { idx ->
             PlayerFactory.create(context).apply {
-                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
-                // time (click a screen's speaker to hear THAT one). The 4-players-
-                // at-once change is reverted per user instruction.
-                // Audio focus is OFF for these players: Android's focus system
-                // was ducking/pausing quadrants, so only some of the 4 could
-                // ever be heard — the app's own volume control decides now.
-                // v2.13: audio settings go FIRST, before setMediaItem/prepare.
-                // They were set AFTER playback started, and on some devices
-                // the audio track then stayed silent (no channel had sound).
-                setAudioAttributes(AudioAttributes.DEFAULT, false)
-                volume = if (idx == 0) 1f else 0f
                 val ch = channels.getOrNull(idx)
                 if (ch != null) {
                     val url = client.liveHlsUrl(ch.streamId)
@@ -289,16 +278,19 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
+                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
+                // time (click a screen's speaker to hear THAT one). The 4-players-
+                // at-once change is reverted per user instruction.
+                // Audio focus is OFF for these players: Android's focus system
+                // was ducking/pausing quadrants, so only some of the 4 could
+                // ever be heard — the app's own volume control decides now.
+                setAudioAttributes(AudioAttributes.DEFAULT, false)
+                volume = if (idx == 0) 1f else 0f
             }
         }
     }
     // Which quadrant has audio (null = all muted). Only one at a time.
     var audibleIdx by remember { mutableStateOf<Int?>(0) }
-    // v2.13: re-assert the volumes once the players exist, so quadrant 0 is
-    // definitely the audible one even if creation order raced.
-    LaunchedEffect(Unit) {
-        players.forEachIndexed { i, p -> p.volume = if (i == 0) 1f else 0f }
-    }
     // Per-quadrant pause state (independent for each screen)
     val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
@@ -309,28 +301,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     }
 
     fun toggleMute(idx: Int) {
-        val prevAudible = audibleIdx
-        val newAudible = if (audibleIdx == idx) null else idx
-        audibleIdx = newAudible
-        // v2.13.1: a plain volume change AFTER the player started does NOT
-        // switch the sound on this device — only the top-left quadrant,
-        // created at volume 1f, ever had audio; the other 3 showed the
-        // unmute icon but stayed silent. So every quadrant whose audibility
-        // CHANGES is re-prepared: its volume is fixed BEFORE the audio
-        // pipeline starts, which is the path proven to work. (That quadrant's
-        // video reloads for 2-3 seconds — the price of switching audio.)
-        // Quadrants whose audibility did not change are untouched.
-        val changed = setOfNotNull(prevAudible, newAudible)
+        audibleIdx = if (audibleIdx == idx) null else idx
         players.forEachIndexed { i, p ->
-            p.volume = if (i == newAudible) 1f else 0f
-            if (i in changed) {
-                val ch = channels.getOrNull(i)
-                if (ch != null) {
-                    p.setMediaItem(MediaItem.fromUri(client.liveHlsUrl(ch.streamId)))
-                    p.prepare()
-                    p.playWhenReady = true
-                }
-            }
+            p.volume = if (i == audibleIdx) 1f else 0f
         }
     }
 
@@ -383,8 +356,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 modifier = Modifier.weight(1f),
             )
         }
-        // v2.13: hint bar REMOVED per user request — no text under the
-        // 4 screens anymore.
+        // v2.13.2: hint bar REMOVED per user request — no text under the
+        // 4 screens anymore. (MultiViewScreen restored to the v2.11/236
+        // version: the v2.13/2.13.1 audio changes are reverted.)
     }
 }
 
