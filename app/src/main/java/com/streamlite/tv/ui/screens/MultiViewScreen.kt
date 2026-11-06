@@ -1,6 +1,5 @@
 package com.streamlite.tv.ui.screens
 
-import androidx.activity.compose.BackHandler
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -76,14 +75,13 @@ import kotlinx.coroutines.withContext
 @Composable
 fun MultiViewScreen(
     session: LoginSession,
-    // 2026-11-04 (Batch 4, Point 9): back from 4-screen returns to the last
-    // screen/category — the app must never fully close from here.
-    onBack: () -> Unit = {},
 ) {
     var selected by remember { mutableStateOf<List<LiveStream>>(emptyList()) }
     var started by remember { mutableStateOf(false) }
 
-    BackHandler { onBack() }
+    // v2.12: back is owned by the single global handler in MainActivity —
+    // back from 4-screen returns to the last screen/category, never closes
+    // the whole app.
 
     if (!started) {
         ChannelPicker(
