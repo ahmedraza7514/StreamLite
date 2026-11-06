@@ -423,11 +423,26 @@ fun SeriesDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(episodes, key = { it.id }) { ep ->
+                        // v2.13: episodes had NO focus highlight at all — the
+                        // row never showed where remote selection was. Now it
+                        // pops up with a white border + scale + focused bg,
+                        // like the series cards.
+                        var isFocused by remember { mutableStateOf(false) }
+                        val scale by animateFloatAsState(if (isFocused) 1.03f else 1f, label = "episodeScale")
                         Card(
                             onClick = { onPlay(client.episodeUrl(ep), "${title} — ${ep.title}") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .scale(scale)
+                                .border(
+                                    width = if (isFocused) 2.dp else 0.dp,
+                                    color = if (isFocused) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(10.dp),
+                                ),
+                            shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.Transparent,
+                                containerColor = if (isFocused) Color(0xFF1E3A5F) else Color.Transparent,
                                 contentColor = SlText,
                             ),
                         ) {
