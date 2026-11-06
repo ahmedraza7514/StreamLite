@@ -1,6 +1,5 @@
 package com.streamlite.tv.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,12 +44,11 @@ fun AccountScreen(
     active: LoginSession?,
     onSwitch: (LoginSession) -> Unit,
     onAdd: () -> Unit,
-    onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val accounts by sessionManager.accountsFlow().collectAsState(initial = emptyList())
 
-    BackHandler { onBack() }
+    // v2.12: back is owned by the single global handler in MainActivity.
 
     Column(
         modifier = Modifier
