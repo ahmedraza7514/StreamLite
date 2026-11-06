@@ -309,12 +309,28 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     }
 
     fun toggleMute(idx: Int) {
-        audibleIdx = if (audibleIdx == idx) null else idx
+        val prevAudible = audibleIdx
+        val newAudible = if (audibleIdx == idx) null else idx
+        audibleIdx = newAudible
+        // v2.13.1: a plain volume change AFTER the player started does NOT
+        // switch the sound on this device — only the top-left quadrant,
+        // created at volume 1f, ever had audio; the other 3 showed the
+        // unmute icon but stayed silent. So every quadrant whose audibility
+        // CHANGES is re-prepared: its volume is fixed BEFORE the audio
+        // pipeline starts, which is the path proven to work. (That quadrant's
+        // video reloads for 2-3 seconds — the price of switching audio.)
+        // Quadrants whose audibility did not change are untouched.
+        val changed = setOfNotNull(prevAudible, newAudible)
         players.forEachIndexed { i, p ->
-            p.volume = if (i == audibleIdx) 1f else 0f
-            // v2.13: make sure the newly audible quadrant is actually
-            // playing (it may have been paused by a tap earlier).
-            if (i == audibleIdx) p.playWhenReady = true
+            p.volume = if (i == newAudible) 1f else 0f
+            if (i in changed) {
+                val ch = channels.getOrNull(i)
+                if (ch != null) {
+                    p.setMediaItem(MediaItem.fromUri(client.liveHlsUrl(ch.streamId)))
+                    p.prepare()
+                    p.playWhenReady = true
+                }
+            }
         }
     }
 
