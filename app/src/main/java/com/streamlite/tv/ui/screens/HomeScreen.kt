@@ -48,9 +48,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -80,7 +84,10 @@ import kotlinx.coroutines.withContext
 // 2026-11-05 (Fix 3): colors MEASURED from his AZUL reference screenshot
 // (region-averaged, not eyeballed): bg #1D182C, card #2E2B3C,
 // side-row surface #312E3F, accent #A855F7, text-dim #B0AEC9.
-private val HomeBackground = Color(0xFF1D182C)
+// 2026-11-06 (v2.12): the reference VIDEO frame measures the background at
+// #2D2748 — the old #1D182C was far too dark. Background is now #2A2547
+// (card #2E2B3C was already right and stays).
+private val HomeBackground = Color(0xFF2A2547)
 private val HomeSurface = Color(0xFF312E3F)
 private val HomeCard = Color(0xFF2E2B3C)
 private val HomeAccent = Color(0xFFA855F7)
@@ -198,7 +205,7 @@ fun HomeScreen(
                     HomeBigCard(
                             logoType = "live",
                         title = "LIVE TV",
-                        count = "• $liveCount Channels",
+                        count = "$liveCount Channels",
                         onClick = { onNavigate(Screen.LiveTv) },
                         modifier = Modifier.weight(1f),
                         compact = true,
@@ -207,7 +214,7 @@ fun HomeScreen(
                         HomeBigCard(
                                     logoType = "movie",
                             title = "Movies",
-                            count = "• $vodCount Movies",
+                            count = "$vodCount Movies",
                             onClick = { onNavigate(Screen.Vod) },
                             modifier = Modifier.weight(1f),
                             compact = true,
@@ -223,7 +230,7 @@ fun HomeScreen(
                         HomeBigCard(
                                     logoType = "series",
                             title = "Series",
-                            count = "• $seriesCount Series",
+                            count = "$seriesCount Series",
                             onClick = { onNavigate(Screen.Series) },
                             modifier = Modifier.weight(1f),
                             compact = true,
@@ -327,7 +334,7 @@ fun HomeScreen(
                         HomeBigCard(
                                     logoType = "live",
                             title = "LIVE TV",
-                            count = "• $liveCount Channels",
+                            count = "$liveCount Channels",
                             onClick = { onNavigate(Screen.LiveTv) },
                             modifier = Modifier.weight(1f),
                         )
@@ -335,14 +342,14 @@ fun HomeScreen(
                             HomeBigCard(
                                             logoType = "movie",
                                 title = "Movies",
-                                count = "• $vodCount Movies",
+                                count = "$vodCount Movies",
                                 onClick = { onNavigate(Screen.Vod) },
                                 modifier = Modifier.weight(1f),
                             )
                             HomeBigCard(
                                             logoType = "series",
                                 title = "Series",
-                                count = "• $seriesCount Series",
+                                count = "$seriesCount Series",
                                 onClick = { onNavigate(Screen.Series) },
                                 modifier = Modifier.weight(1f),
                             )
@@ -475,7 +482,17 @@ private fun HomeBigCard(
                 color = Color.White,
             )
             Spacer(Modifier.height(if (compact) 4.dp else 6.dp))
-            Text(count, fontSize = if (compact) 13.sp else 18.sp, color = HomeTextDim)
+            // v2.12: the bullet is the purple accent (like the AZUL
+            // reference), the count text stays dim.
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = HomeAccent, fontWeight = FontWeight.Bold)) {
+                        append("• ")
+                    }
+                    withStyle(SpanStyle(color = HomeTextDim)) { append(count) }
+                },
+                fontSize = if (compact) 13.sp else 18.sp,
+            )
         }
     }
 }
@@ -483,9 +500,11 @@ private fun HomeBigCard(
 
 /**
  * Reference-style logos (Fix 3, 2026-11-05): drawn to match the AZUL
- * reference — NOT generic Material icons. LIVE = white TV with antenna +
- * pink "LIVE" text; Movies = white film reel + purple film strip;
- * Series = purple clapperboard with white stripes; 4 Screen = grid icon.
+ * reference — NOT generic Material icons. LIVE = pink broadcast antenna
+ * with signal waves + white LIVE sign (v2.12: the old white TV set did
+ * NOT match the reference and is removed); Movies = white film reel +
+ * purple film strip; Series = purple clapperboard with white stripes;
+ * 4 Screen = grid icon.
  */
 @Composable
 private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) {
@@ -504,30 +523,52 @@ private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) 
 
 @Composable
 private fun LiveLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+    // v2.12: matches the AZUL reference — a pink broadcast antenna with
+    // radiating signal waves above a white LIVE sign. (The old white TV
+    // set did not match the reference.)
     Box(modifier = modifier.size(logoSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
             val cx = w / 2f
-            val dotY = h * 0.10f
-            val armW = (w * 0.02f).coerceAtLeast(2f)
-            // Antenna arms + pink dot where they meet.
-            drawLine(Color.White, Offset(cx - w * 0.30f, h * 0.01f), Offset(cx, dotY), strokeWidth = armW)
-            drawLine(Color.White, Offset(cx + w * 0.30f, h * 0.01f), Offset(cx, dotY), strokeWidth = armW)
-            drawCircle(Color(0xFFE91E63), radius = w * 0.055f, center = Offset(cx, dotY))
-            // White TV body.
+            // Soft pink glow behind the antenna.
+            drawCircle(
+                Color(0xFFE91E63).copy(alpha = 0.22f),
+                radius = w * 0.42f,
+                center = Offset(cx, h * 0.28f),
+            )
+            // Antenna mast + tip dot.
+            val mastTop = h * 0.06f
+            val mastBottom = h * 0.46f
+            val mastW = (w * 0.025f).coerceAtLeast(2f)
+            drawLine(Color(0xFFFF7AA2), Offset(cx, mastTop), Offset(cx, mastBottom), strokeWidth = mastW)
+            drawCircle(Color(0xFFE91E63), radius = w * 0.05f, center = Offset(cx, mastTop))
+            // Signal waves radiating from the mast (pink arcs, 3 each side).
+            val waveCenter = Offset(cx, h * 0.30f)
+            val arcW = (w * 0.03f).coerceAtLeast(2f)
+            for (i in 1..3) {
+                val r = w * (0.12f + i * 0.08f)
+                val arcTopLeft = Offset(waveCenter.x - r, waveCenter.y - r)
+                val arcSize = Size(r * 2f, r * 2f)
+                drawArc(Color(0xFFFF7AA2), -55f, 110f, false, arcTopLeft, arcSize, style = Stroke(width = arcW))
+                drawArc(Color(0xFFFF7AA2), 115f, 110f, false, arcTopLeft, arcSize, style = Stroke(width = arcW))
+            }
+            // White LIVE sign box.
             drawRoundRect(
                 Color.White,
-                topLeft = Offset(w * 0.05f, h * 0.16f),
-                size = Size(w * 0.90f, h * 0.76f),
-                cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+                topLeft = Offset(w * 0.14f, h * 0.56f),
+                size = Size(w * 0.72f, h * 0.32f),
+                cornerRadius = CornerRadius(w * 0.06f, w * 0.06f),
             )
         }
         Text(
             "LIVE",
             color = Color(0xFFE91E63),
             fontWeight = FontWeight.Bold,
-            fontSize = (logoSize.value * 0.22f).sp,
+            fontSize = (logoSize.value * 0.20f).sp,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = (logoSize.value * 0.60f).dp),
         )
     }
 }
