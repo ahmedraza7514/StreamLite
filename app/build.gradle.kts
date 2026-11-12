@@ -16,8 +16,14 @@ android {
         // re-click + sit above the bar; Volume/Brightness in a horizontal ROW;
         // WHITE 3dp border + scale on channel/movie/series GRID ITEMS.
         // Rule: bump versionCode + versionName on every build that ships changes.
-        versionCode = 17
-        versionName = "2.13.2"
+        // 2026-11-12: v2.14.0 — MultiView fix (Ahmed Bhai ka hukum):
+        // har screen ki video TextureView par (charoon display hon)
+        // aur 4-screen ke liye halka player (480p cap + chhota
+        // buffer) taake box par tez aur smooth chale. Awaz ka rule
+        // waisa ka waisa hai (ek waqt me ek screen). Baqi app mein
+        // koi changing nahi.
+        versionCode = 18
+        versionName = "2.14.0"
     }
 
     buildTypes {
