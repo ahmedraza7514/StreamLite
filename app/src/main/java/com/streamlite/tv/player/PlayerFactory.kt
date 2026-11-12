@@ -62,4 +62,53 @@ object PlayerFactory {
             .setRenderersFactory(renderersFactory)
             .build()
     }
+
+    /**
+     * Halka player sirf 4-Screen (MultiView) ke liye — 2026-11-12,
+     * v2.14.0, Ahmed Bhai ka hukum: "smooth aur light banao takay
+     * TV box py fast run ho".
+     *
+     * Single player wale [create] se farq:
+     * - Quality cap 480p (854x480): quadrant aadhi screen ka chhota
+     *   hissa hai, wahan 720p ka farq nazar nahi ata — lekin decode
+     *   aur bandwidth ka bojh takreeban aadha ho jata hai. 4 streams
+     *   ek sath 4 Mbps line par isi liye chal sakti hain.
+     * - Buffer chhota aur tay (10s/30s): 4 players ek sath bare
+     *   buffer bharein to 2GB box ki RAM aur line dono par bojh
+     *   parta hai aur asal playback rukti hai; chhota buffer live
+     *   streams ko halka aur tez rakhta hai.
+     * - Hardware decoding + software fallback [create] jaisa hi hai.
+     *
+     * NOTE: BufferPrefStore wali Settings is par laagu nahi hoti —
+     * ye MultiView ke liye tay halki setting hai.
+     */
+    fun createForMultiView(context: Context): ExoPlayer {
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 10_000,
+                /* maxBufferMs = */ 30_000,
+                /* bufferForPlaybackMs = */ 1_000,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_000,
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val trackSelector = DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMaxVideoSize(854, 480)
+                    .setForceHighestSupportedBitrate(false),
+            )
+        }
+
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+
+        return ExoPlayer.Builder(context)
+            .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
+            .setRenderersFactory(renderersFactory)
+            .build()
+    }
 }
