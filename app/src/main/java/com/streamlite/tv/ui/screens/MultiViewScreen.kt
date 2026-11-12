@@ -1,5 +1,6 @@
 package com.streamlite.tv.ui.screens
 
+import android.view.TextureView
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,7 +49,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.AudioAttributes
-import androidx.media3.ui.PlayerView
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
@@ -69,8 +69,19 @@ import kotlinx.coroutines.withContext
  * - Tap a quadrant -> pauses/plays THAT quadrant independently.
  * - Speaker icon on the side of each quadrant -> mute/unmute (the audible
  *   quadrant switches here too; only one quadrant has audio at a time).
- * - Players are built by PlayerFactory (tuned buffers + 720p cap) so the
- *   2GB TV box doesn't choke on 4 simultaneous streams.
+ *
+ * 2026-11-12 (v2.14.0, Ahmed Bhai's final order): AWAZ KA RULE WAHI
+ * hai jo pehle tha — ek waqt me sirf ek screen ki awaz, jis ko unmute
+ * karen sirf wahi (us ne khud ye rule confirm kiya). Is build me sirf
+ * do tabdeeliyan hain:
+ * - Video ab TextureView par hai, PlayerView ke SurfaceView par nahi:
+ *   TV box par 4 SurfaceView ek sath chalane se ek na ek screen kaali
+ *   reh jati thi (aur wo position bhi badalti rehti thi — bojh/load
+ *   ka masla hai, kisi ek screen ka nahi). TextureView aam UI ki
+ *   tarah composite hoti hai, is liye charoon display hoti hain.
+ * - Players PlayerFactory.createForMultiView se bante hain (halke:
+ *   480p cap + chhota buffer) taake 4 streams 2GB TV box aur 4 Mbps
+ *   line par smooth chalen.
  */
 @Composable
 fun MultiViewScreen(
@@ -266,11 +277,12 @@ private fun ChannelPicker(
 private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val context = LocalContext.current
     val client = remember { XtreamClient(session.server, session.username, session.password) }
-    // One tuned player per quadrant (PlayerFactory: small buffers + 720p cap
-    // so 4 streams don't OOM the 2GB TV box)
+    // One LIGHT player per quadrant (PlayerFactory.createForMultiView:
+    // 480p cap + small buffers, so 4 streams stay smooth on the 2GB
+    // TV box and don't fight over his 4 Mbps line)
     val players = remember {
         List(4) { idx ->
-            PlayerFactory.create(context).apply {
+            PlayerFactory.createForMultiView(context).apply {
                 val ch = channels.getOrNull(idx)
                 if (ch != null) {
                     val url = client.liveHlsUrl(ch.streamId)
@@ -278,12 +290,12 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
-                // time (click a screen's speaker to hear THAT one). The 4-players-
-                // at-once change is reverted per user instruction.
-                // Audio focus is OFF for these players: Android's focus system
-                // was ducking/pausing quadrants, so only some of the 4 could
-                // ever be heard — the app's own volume control decides now.
+                // Awaz ka rule purana wala hi hai (Ahmed Bhai ne
+                // 2026-11-12 ko confirm kiya): ek waqt me SIRF EK
+                // quadrant audible — neeche audibleIdx usi ko sambhalta
+                // hai. Audio focus OFF hai: Android ka focus system
+                // quadrants ko duck/pause kar deta tha, is liye app ki
+                // apni volume hi faisla karti hai.
                 setAudioAttributes(AudioAttributes.DEFAULT, false)
                 volume = if (idx == 0) 1f else 0f
             }
@@ -397,18 +409,25 @@ private fun QuadPlayer(
             .onFocusChanged { quadFocused = it.isFocused }
             .clickable { onTap() },
     ) {
+        // 2026-11-12 (v2.14.0): video TextureView par hai, PlayerView ke
+        // SurfaceView par nahi. TV box par 4 SurfaceView ek sath chalane
+        // par ek na ek screen kaali reh jati thi (hardware overlay ki
+        // had) — TextureView aam UI ki tarah composite hoti hai, is
+        // liye charoon screens display hoti hain. TextureView box ko
+        // poora bharti hai — waisa hi look jaisa purana RESIZE_MODE_FILL
+        // deta tha (koi black bars nahi).
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    this.player = player
-                    useController = false
-                    // Fill the box completely (no black bars)
-                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                TextureView(ctx).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
+                    player.setVideoTextureView(this)
                 }
+            },
+            onRelease = { textureView ->
+                player.clearVideoTextureView(textureView)
             },
             modifier = Modifier.fillMaxSize(),
         )
