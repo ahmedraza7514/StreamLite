@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -194,12 +195,25 @@ object DataRepository {
             // dobara sync kiye sirf images taaza karni hain.
             thumbUrls = liveLogos + vodLogos + seriesCovers
             thumbPriority = liveLogos.size
+            // 2026-11-13 (v2.20.0): Ahmed Bhai ka hukum — jab user
+            // media contents load/update kare to thumbnails BHI
+            // sath hi load hon aur un ki loading screen par nazar
+            // aye. Is liye ab preload fire-and-forget NAHI hai:
+            // pehle THUMBNAILS step ka elaan, phir us ke mukammal
+            // hone ka intezar — Sync screen tabhi aage barhti hai
+            // jab thumbnails khatam hon. (Jo images pehle se cache
+            // me hain wo foran gin li jati hain, is liye agli
+            // updates par ye qadam tez hota hai.)
+            onProgress("THUMBNAILS")
             ThumbnailPreloader.preload(
                 appContext,
                 thumbUrls,
                 onThumbnailProgress,
                 priorityCount = thumbPriority,
             )
+            while (ThumbnailPreloader.running) {
+                delay(400)
+            }
         }
 
         isSynced = true
