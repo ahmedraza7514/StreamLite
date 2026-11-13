@@ -58,8 +58,23 @@ android {
         // themes.xml ki window background me logo, taake app
         // khulte hi pehle frame par kuch nazar aye, splash se
         // pehle ka khaali intezar khatam.
-        versionCode = 24
-        versionName = "2.19.0"
+        // 2026-11-13: v2.20.0 — #288 (v2.19.0) mobile + TV box
+        // dono par FIT (awaz ka masla HAL). Ab sirf ye tabdeeliyan:
+        // (M1) thumbnails ab Update Media Contents ke SATH load
+        // hoti hain — Sync screen par THUMBNAILS ka alag step,
+        // gintee nazar ati hai, sync tabhi mukammal jab thumbnails
+        // khatam. (TV1) 4-Screen remote silsila: box ke andar
+        // pehle play/pause, phir speaker, phir agla box; picker me
+        // 4 select hote hi focus "Start Watching" par. (TV2)
+        // player menus: focused item par safed border, menu
+        // auto-close nahi, band sirf DOWN key se (BACK se nahi —
+        // MainActivity rokta hai), title wrap (2 lines). (TV3)
+        // splash.mp4 halka (854px, ~0.6MB) taake TV box par
+        // pehla frame foran aye. (H) Homepage: QUICK ACCESS se
+        // Update media row khatam, "Multiscreen" ka naam
+        // "Play 4 Screen", background Rosewood #6A040F.
+        versionCode = 25
+        versionName = "2.20.0"
     }
 
     buildTypes {
