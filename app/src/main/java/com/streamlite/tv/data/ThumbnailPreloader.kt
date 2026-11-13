@@ -3,6 +3,7 @@ package com.streamlite.tv.data
 import android.content.Context
 import coil.imageLoader
 import coil.request.CachePolicy
+import coil.request.ErrorResult
 import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,12 @@ object ThumbnailPreloader {
         private set
     @Volatile var done: Int = 0
         private set
+    // 2026-11-13 (v2.18.0): FAIL ginna bhi zaroori hai — kitni
+    // images asal me load huin aur kitni panel ki taraf se mare
+    // hue (dead) links thay, ye farq nazar ana chahiye. Pehle har
+    // koshish "done" gin li jati thi, kamyab ho ya na ho.
+    @Volatile var failed: Int = 0
+        private set
     @Volatile var running: Boolean = false
         private set
 
@@ -52,11 +59,13 @@ object ThumbnailPreloader {
         }
         total = unique.size
         done = 0
+        failed = 0
         running = true
         val appCtx = context.applicationContext
         scope.launch {
             val loader = appCtx.imageLoader
             val counter = AtomicInteger(0)
+            val failCounter = AtomicInteger(0)
             val sem = Semaphore(8)
             try {
                 unique.mapIndexed { idx, url ->
@@ -79,10 +88,14 @@ object ThumbnailPreloader {
                                         .diskCachePolicy(CachePolicy.ENABLED)
                                         .memoryCachePolicy(CachePolicy.DISABLED)
                                         .build()
-                                    loader.execute(req)
+                                    val result = loader.execute(req)
+                                    if (result is ErrorResult) {
+                                        failed = failCounter.incrementAndGet()
+                                    }
                                 }
                             } catch (_: Exception) {
                                 // Dead/slow icon URL — skip it, never fail the batch.
+                                failed = failCounter.incrementAndGet()
                             } finally {
                                 val d = counter.incrementAndGet()
                                 done = d
