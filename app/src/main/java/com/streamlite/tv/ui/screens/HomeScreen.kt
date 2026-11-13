@@ -53,6 +53,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -97,6 +98,12 @@ import kotlinx.coroutines.withContext
 // aur jagah par hai — kisi doosri app ka naam as-is nahi lagaya.
 // Cards pop up on focus (scale + shadow, NO border); logos animate
 // ONLY on remote selection — kabhi always-on nahi (un ka rule).
+// 2026-11-13 (v2.16.0, Ahmed Bhai ke screenshot notes par): card
+// logos REFERENCE walay kar diye (TV set + LIVE pill wala title,
+// popcorn balti, kala clapperboard); neeche wale naam/count
+// CHHOTE; Dashboard patti PATLI; chhoti unchai wali screen
+// (landscape mobile) par cards aur Quick Access panel khud
+// sikor jate hain — koi hissa kat kar gayab nahi hota.
 private val HomeBackground = Color(0xFF0B0B0F)
 private val HomeGlow = Color(0xFF2E1418)
 private val HomeCard = Color(0xFF17181F)
@@ -236,10 +243,15 @@ fun HomeScreen(
                 Spacer(Modifier.height(16.dp))
 
                 // ---- MAIN ROW: big cards (left) + QUICK ACCESS panel ----
-                Row(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
+                // v2.16.0: chhoti unchai wali screen (landscape mobile)
+                // par panel ki rows SIKOR jati hain, taake Catch Up /
+                // Account wali rows kat kar gayab na hon.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    val tight = maxHeight < 300.dp
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
                     Row(
                         modifier = Modifier.weight(0.72f),
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -272,10 +284,12 @@ fun HomeScreen(
                             )
                         }
                     }
-                    HomeQuickAccessPanel(
-                        onNavigate = onNavigate,
-                        modifier = Modifier.weight(0.28f).fillMaxHeight(),
-                    )
+                        HomeQuickAccessPanel(
+                            onNavigate = onNavigate,
+                            modifier = Modifier.weight(0.28f).fillMaxHeight(),
+                            tight = tight,
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(14.dp))
@@ -381,6 +395,7 @@ private fun HomeIconButton(
 private fun HomeQuickAccessPanel(
     onNavigate: (Screen) -> Unit,
     modifier: Modifier = Modifier,
+    tight: Boolean = false,
 ) {
     Card(
         modifier = modifier,
@@ -391,34 +406,38 @@ private fun HomeQuickAccessPanel(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(if (tight) 10.dp else 16.dp)) {
             Text(
                 "QUICK ACCESS",
-                fontSize = 12.sp,
+                fontSize = if (tight) 11.sp else 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = HomeTextDim,
             )
-            Spacer(Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(Modifier.height(if (tight) 8.dp else 12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(if (tight) 6.dp else 10.dp)) {
                 HomeSideRow(
                     icon = Icons.Filled.GridView,
                     label = "Multiscreen",
                     onClick = { onNavigate(Screen.MultiView) },
+                    tight = tight,
                 )
                 HomeSideRow(
                     icon = Icons.Filled.Refresh,
                     label = "Update media",
                     onClick = { onNavigate(Screen.Sync()) },
+                    tight = tight,
                 )
                 HomeSideRow(
                     icon = Icons.Filled.History,
                     label = "Catch Up",
                     onClick = { onNavigate(Screen.LiveTv) },
+                    tight = tight,
                 )
                 HomeSideRow(
                     icon = Icons.Filled.Person,
                     label = "Account",
                     onClick = { onNavigate(Screen.Account) },
+                    tight = tight,
                 )
             }
         }
@@ -445,7 +464,7 @@ private fun HomeDashboardBar(username: String, expDate: Long) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
@@ -457,16 +476,16 @@ private fun HomeDashboardBar(username: String, expDate: Long) {
                 )
                 Text(
                     username,
-                    fontSize = 17.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                 )
             }
             Spacer(Modifier.weight(1f))
-            Text("STATUS", fontSize = 11.sp, color = HomeTextDim)
+            Text("STATUS", fontSize = 10.sp, color = HomeTextDim)
             Text(
                 "  Active",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = StatusGreen,
             )
@@ -478,10 +497,10 @@ private fun HomeDashboardBar(username: String, expDate: Long) {
                         .background(StatusGreen, CircleShape),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("EXPIRY DATE:  ", fontSize = 11.sp, color = HomeTextDim)
+                Text("EXPIRY DATE:  ", fontSize = 10.sp, color = HomeTextDim)
                 Text(
                     SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH).format(Date(expDate * 1000)),
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = StatusGreen,
                 )
@@ -530,7 +549,8 @@ private fun HomeBigCard(
     )
     // RULE (his, 2026-11-05): logos animate ONLY on remote selection
     // (focus) — NEVER always-on.
-    val iconSize = if (compact) 48.dp else 96.dp
+    // (Icon/title ke sizes neeche BoxWithConstraints se ate hain —
+    // chhoti unchai par wo khud sikor jate hain.)
     val logoModifier = when (logoType) {
         "movie" -> Modifier.rotate(if (isFocused) spin else 0f)
         "series" -> Modifier.rotate(if (isFocused) wobble else 0f)
@@ -552,21 +572,62 @@ private fun HomeBigCard(
             defaultElevation = if (isFocused) 12.dp else 4.dp,
         ),
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp),
-        ) {
+        // v2.16.0: card ki asal unchai dekh kar andar ke sizes —
+        // landscape mobile jesi chhoti screen par logo/title sikor
+        // jate hain, taake neeche wali count ki line card se bahar
+        // kat kar gayab na ho (Ahmed Bhai ki screenshot wala masla).
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val small = !compact && maxHeight < 260.dp
+            val iconSize = when {
+                compact -> 48.dp
+                small -> 58.dp
+                else -> 92.dp
+            }
+            val titleSize = when {
+                compact -> 19.sp
+                small -> 20.sp
+                else -> 26.sp
+            }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(if (compact) 12.dp else 16.dp),
+            ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 HomeLogo(logoType = logoType, size = iconSize, modifier = logoModifier)
-                Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
-                Text(
-                    title,
-                    fontSize = if (compact) 19.sp else 29.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
+                Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
+                if (logoType == "live") {
+                    // Reference style title: surkh LIVE pill + TV.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .background(LiveRed, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                        ) {
+                            Text(
+                                "LIVE",
+                                fontSize = if (compact) 11.sp else 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "TV",
+                            fontSize = titleSize,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                    }
+                } else {
+                    Text(
+                        title,
+                        fontSize = titleSize,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                }
             }
             Spacer(Modifier.weight(1f))
             // Neeche-bayein: rang-dar patti + naam + count + refresh
@@ -581,14 +642,14 @@ private fun HomeBigCard(
                 Column {
                     Text(
                         bottomLabel,
-                        fontSize = if (compact) 12.sp else 15.sp,
+                        fontSize = if (compact) 11.sp else 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             count,
-                            fontSize = if (compact) 11.sp else 14.sp,
+                            fontSize = if (compact) 10.sp else 12.sp,
                             color = HomeTextDim,
                         )
                         Spacer(Modifier.width(6.dp))
@@ -596,26 +657,28 @@ private fun HomeBigCard(
                             Icons.Filled.Refresh,
                             contentDescription = null,
                             tint = accent,
-                            modifier = Modifier.size(if (compact) 11.dp else 14.dp),
+                            modifier = Modifier.size(if (compact) 11.dp else 12.dp),
                         )
                     }
                 }
+            }
             }
         }
     }
 }
 
 /**
- * Card logos — app ke apne bane hue nishan (Canvas par): LIVE =
- * gulabi broadcast antenna + safed LIVE sign; Movies = safed film
- * reel + neeli patti; Series = jamni clapperboard safed dhariyon
- * ke sath.
+ * Card logos — v2.16.0: REFERENCE image walay (Ahmed Bhai ka
+ * hukum): LIVE = TV set (antenna wala), title ke sath surkh LIVE
+ * pill (HomeBigCard me lagti hai); Movies = popcorn ki balti
+ * (safed + surkh dhariyaan, upar peele dane); Series = KALA
+ * clapperboard safed dhariyon ke sath.
  */
 @Composable
 private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) {
     when (logoType) {
-        "live" -> LiveLogo(size, modifier)
-        "movie" -> ReelLogo(size, modifier)
+        "live" -> TvLogo(size, modifier)
+        "movie" -> PopcornLogo(size, modifier)
         "series" -> ClapperLogo(size, modifier)
         else -> Icon(
             Icons.Filled.GridView,
@@ -627,94 +690,107 @@ private fun HomeLogo(logoType: String, size: Dp, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun LiveLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+private fun TvLogo(logoSize: Dp, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(logoSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
             val cx = w / 2f
-            // Soft pink glow behind the antenna.
-            drawCircle(
-                Color(0xFFE91E63).copy(alpha = 0.22f),
-                radius = w * 0.42f,
-                center = Offset(cx, h * 0.28f),
-            )
-            // Antenna mast + tip dot.
-            val mastTop = h * 0.06f
-            val mastBottom = h * 0.46f
-            val mastW = (w * 0.025f).coerceAtLeast(2f)
-            drawLine(Color(0xFFFF7AA2), Offset(cx, mastTop), Offset(cx, mastBottom), strokeWidth = mastW)
-            drawCircle(Color(0xFFE91E63), radius = w * 0.05f, center = Offset(cx, mastTop))
-            // Signal waves radiating from the mast (pink arcs, 3 each side).
-            val waveCenter = Offset(cx, h * 0.30f)
-            val arcW = (w * 0.03f).coerceAtLeast(2f)
-            for (i in 1..3) {
-                val r = w * (0.12f + i * 0.08f)
-                val arcTopLeft = Offset(waveCenter.x - r, waveCenter.y - r)
-                val arcSize = Size(r * 2f, r * 2f)
-                drawArc(Color(0xFFFF7AA2), -55f, 110f, false, arcTopLeft, arcSize, style = Stroke(width = arcW))
-                drawArc(Color(0xFFFF7AA2), 115f, 110f, false, arcTopLeft, arcSize, style = Stroke(width = arcW))
-            }
-            // White LIVE sign box.
+            val body = Color(0xFF23252D)
+            val edge = Color(0xFF3A3F4A)
+            // Antenna: darmiyan ki bunyad se do terchi taangein,
+            // siro par gol nishan (reference wala TV set).
+            val base = Offset(cx, h * 0.30f)
+            val tipL = Offset(w * 0.20f, h * 0.03f)
+            val tipR = Offset(w * 0.80f, h * 0.03f)
+            val antW = (w * 0.028f).coerceAtLeast(2f)
+            drawLine(edge, base, tipL, strokeWidth = antW)
+            drawLine(edge, base, tipR, strokeWidth = antW)
+            drawCircle(edge, radius = w * 0.032f, center = tipL)
+            drawCircle(edge, radius = w * 0.032f, center = tipR)
+            drawCircle(edge, radius = w * 0.045f, center = base)
+            // TV body (gehra slate) + andar ki kaali screen.
             drawRoundRect(
-                Color.White,
-                topLeft = Offset(w * 0.14f, h * 0.56f),
-                size = Size(w * 0.72f, h * 0.32f),
-                cornerRadius = CornerRadius(w * 0.06f, w * 0.06f),
+                body,
+                topLeft = Offset(w * 0.09f, h * 0.28f),
+                size = Size(w * 0.82f, h * 0.56f),
+                cornerRadius = CornerRadius(w * 0.07f, w * 0.07f),
+            )
+            drawRoundRect(
+                Color(0xFF0C0D11),
+                topLeft = Offset(w * 0.155f, h * 0.345f),
+                size = Size(w * 0.69f, h * 0.43f),
+                cornerRadius = CornerRadius(w * 0.045f, w * 0.045f),
+            )
+            // Neeche chhota sa stand.
+            drawRoundRect(
+                edge,
+                topLeft = Offset(w * 0.36f, h * 0.865f),
+                size = Size(w * 0.28f, h * 0.045f),
+                cornerRadius = CornerRadius(w * 0.02f, w * 0.02f),
             )
         }
+        // Screen ke darmiyan safed "TV".
         Text(
-            "LIVE",
-            color = Color(0xFFE91E63),
+            "TV",
+            color = Color.White,
             fontWeight = FontWeight.Bold,
-            fontSize = (logoSize.value * 0.20f).sp,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = (logoSize.value * 0.60f).dp),
+            fontSize = (logoSize.value * 0.26f).sp,
+            modifier = Modifier.padding(top = (logoSize.value * 0.11f).dp),
         )
     }
 }
 
 @Composable
-private fun ReelLogo(logoSize: Dp, modifier: Modifier = Modifier) {
+private fun PopcornLogo(logoSize: Dp, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(logoSize)) {
         val w = size.width
         val h = size.height
-        val c = Offset(w / 2f, h * 0.44f)
-        val r = minOf(w, h) * 0.40f
-        // White reel.
-        drawCircle(Color.White, radius = r, center = c)
-        // 5 holes in a ring + centre hole (dark).
-        val holeR = r * 0.17f
-        val ringR = r * 0.58f
-        for (i in 0 until 5) {
-            val a = (-90f + i * 72f) * PI.toFloat() / 180f
-            drawCircle(
-                Color(0xFF3A3648),
-                radius = holeR,
-                center = Offset(c.x + ringR * cos(a), c.y + ringR * sin(a)),
-            )
+        // Balti (bucket): upar chauri, neeche tang — trapezoid.
+        val bucket = Path().apply {
+            moveTo(w * 0.235f, h * 0.30f)
+            lineTo(w * 0.765f, h * 0.30f)
+            lineTo(w * 0.685f, h * 0.90f)
+            lineTo(w * 0.315f, h * 0.90f)
+            close()
         }
-        drawCircle(Color(0xFF3A3648), radius = r * 0.20f, center = c)
-        // Film strip curling at the bottom (v2.15.0: neeli — Movies
-        // card ke nishan ke rang se mel khati hai).
-        val sw = r * 1.7f
-        val sh = r * 0.46f
-        val sx = c.x - sw / 2f
-        val sy = c.y + r * 0.52f
-        drawRoundRect(
-            MoviesBlue,
-            topLeft = Offset(sx, sy),
-            size = Size(sw, sh),
-            cornerRadius = CornerRadius(sh * 0.25f, sh * 0.25f),
+        drawPath(bucket, Color(0xFFF5F5F5))
+        // Surkh khari dhariyaan — SIRF balti ki shakl ke andar.
+        clipPath(bucket) {
+            val sw = w * 0.105f
+            for (i in 0 until 3) {
+                val x = w * (0.335f + i * 0.165f)
+                drawRect(
+                    LiveRed,
+                    topLeft = Offset(x, h * 0.30f),
+                    size = Size(sw, h * 0.60f),
+                )
+            }
+        }
+        // Balti ke kinare (rim) ki halki lakeer.
+        drawLine(
+            Color(0xFFD8D8D8),
+            Offset(w * 0.225f, h * 0.30f),
+            Offset(w * 0.775f, h * 0.30f),
+            strokeWidth = (w * 0.02f).coerceAtLeast(1.5f),
         )
-        val pw = sw / 9f
-        for (i in 0 until 3) {
-            drawRoundRect(
-                Color.White,
-                topLeft = Offset(sx + pw * (1.2f + i * 3f), sy + sh * 0.22f),
-                size = Size(pw, sh * 0.56f),
-                cornerRadius = CornerRadius(2f, 2f),
+        // Upar popcorn ke dane: halke peele gol + naram sa saya.
+        val cream = Color(0xFFFFE9B0)
+        val shade = Color(0xFFF2C14E)
+        val kern = listOf(
+            Triple(0.32f, 0.235f, 0.105f),
+            Triple(0.435f, 0.185f, 0.125f),
+            Triple(0.545f, 0.205f, 0.115f),
+            Triple(0.65f, 0.19f, 0.12f),
+            Triple(0.735f, 0.25f, 0.095f),
+            Triple(0.50f, 0.27f, 0.10f),
+        )
+        for ((fx, fy, fr) in kern) {
+            drawCircle(cream, radius = w * fr, center = Offset(w * fx, h * fy))
+            drawCircle(
+                shade,
+                radius = w * fr * 0.38f,
+                center = Offset(w * fx + w * fr * 0.25f, h * fy + w * fr * 0.30f),
             )
         }
     }
@@ -729,18 +805,25 @@ private fun ClapperLogo(logoSize: Dp, modifier: Modifier = Modifier) {
         val by = h * 0.30f
         val bw = w * 0.84f
         val bh = h * 0.60f
-        // Purple body.
+        // v2.16.0: KALA body (reference wala clapper) + halki kinari.
         drawRoundRect(
-            SeriesPurple,
+            Color(0xFF17181C),
             topLeft = Offset(bx, by),
             size = Size(bw, bh),
             cornerRadius = CornerRadius(w * 0.07f, w * 0.07f),
         )
-        // Top slate bar (deeper purple) with white diagonal stripes.
+        drawRoundRect(
+            Color(0xFF3A3F4A),
+            topLeft = Offset(bx, by),
+            size = Size(bw, bh),
+            cornerRadius = CornerRadius(w * 0.07f, w * 0.07f),
+            style = Stroke(width = (w * 0.014f).coerceAtLeast(1.5f)),
+        )
+        // Top slate bar (kala) with white diagonal stripes.
         val barH = h * 0.20f
         val barTop = by - barH * 0.55f
         drawRoundRect(
-            Color(0xFF9333EA),
+            Color(0xFF0B0B0F),
             topLeft = Offset(bx, barTop),
             size = Size(bw, barH),
             cornerRadius = CornerRadius(w * 0.06f, w * 0.06f),
@@ -774,6 +857,7 @@ private fun HomeSideRow(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    tight: Boolean = false,
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.04f else 1f, label = "homeSideRowScale")
@@ -793,12 +877,12 @@ private fun HomeSideRow(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = if (tight) 6.dp else 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(if (tight) 28.dp else 34.dp)
                     .background(HomeChip, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
@@ -806,11 +890,11 @@ private fun HomeSideRow(
                     icon,
                     contentDescription = label,
                     tint = Color.White,
-                    modifier = Modifier.size(19.dp),
+                    modifier = Modifier.size(if (tight) 15.dp else 19.dp),
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Text(label, fontSize = 16.sp, color = Color.White)
+            Text(label, fontSize = if (tight) 14.sp else 16.sp, color = Color.White)
         }
     }
 }
