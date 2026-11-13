@@ -148,6 +148,12 @@ fun HomeScreen(
     val vodCount = DataRepository.vodTotalCount
     val seriesCount = DataRepository.seriesTotalCount
 
+    // 2026-11-13 (v2.19.0, Point 5): QUICK ACCESS ke "Update
+    // Thumbnails" button ki karwai — DataRepository khud catalog
+    // load karke thumbnails chalata hai (Sync screen nahi).
+    val appContext = LocalContext.current.applicationContext
+    val updateThumbnails = { DataRepository.startThumbnailUpdate(session, appContext) }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -219,7 +225,7 @@ fun HomeScreen(
                 }
 
                 Spacer(Modifier.height(16.dp))
-                HomeQuickAccessPanel(onNavigate = onNavigate)
+                HomeQuickAccessPanel(onNavigate = onNavigate, onUpdateThumbnails = updateThumbnails)
 
                 Spacer(Modifier.height(16.dp))
                 HomeDashboardBar(username = session.username, expDate = expDate)
@@ -289,6 +295,7 @@ fun HomeScreen(
                     }
                         HomeQuickAccessPanel(
                             onNavigate = onNavigate,
+                            onUpdateThumbnails = updateThumbnails,
                             modifier = Modifier.weight(0.28f).fillMaxHeight(),
                             tight = tight,
                         )
@@ -397,13 +404,13 @@ private fun HomeIconButton(
 @Composable
 private fun HomeQuickAccessPanel(
     onNavigate: (Screen) -> Unit,
+    onUpdateThumbnails: () -> Unit,
     modifier: Modifier = Modifier,
     tight: Boolean = false,
 ) {
     // 2026-11-13 (v2.18.0, Point 5): "Update Thumbnails" ki halat —
     // preload chal raha ho to progress (done / total), khatam ho
     // to kitni images load huin aur kitni FAIL (mare hue links).
-    val thumbContext = LocalContext.current
     var thumbStatus by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
         while (true) {
@@ -450,19 +457,15 @@ private fun HomeQuickAccessPanel(
                 )
                 // 2026-11-13 (v2.18.0, Point 5): Ahmed Bhai ka
                 // hukum — sirf title images/logos taaza karne ka
-                // ALAG button. Media pehle se load ho to sirf
-                // thumbnails chalte hain; na ho to pehle sync
-                // wali screen (us me thumbnails bhi shamil hain).
+                // ALAG button. v2.19.0: button ab khud-kafi hai —
+                // DataRepository pehle catalog load karke phir
+                // thumbnails chalata hai; Sync screen par bhejna
+                // khatam (wo rawaiya "button kaam nahi karta" ki
+                // wajah tha).
                 HomeSideRow(
                     icon = Icons.Filled.Image,
                     label = "Update Thumbnails",
-                    onClick = {
-                        if (DataRepository.liveStreams != null) {
-                            DataRepository.startThumbnailUpdate(thumbContext)
-                        } else {
-                            onNavigate(Screen.Sync())
-                        }
-                    },
+                    onClick = onUpdateThumbnails,
                     tight = tight,
                 )
                 HomeSideRow(
