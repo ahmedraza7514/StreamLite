@@ -62,7 +62,14 @@ object PlayerFactory {
 
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            // 2026-11-13 (v2.19.0, Points 1-2): extension renderers
+            // ON — app me FFmpeg software decoder (Jellyfin wala
+            // media3-ffmpeg-decoder) jama hai. Jo audio format
+            // (AC3 / E-AC3 / DTS waghera) phone ka apna decoder
+            // nahi chala sakta, wo FFmpeg software se decode ho
+            // ga — yahi un channels/movies ki khamoshi ki wajah
+            // thi jin ki awaz kahin nahi ati thi.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         return ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
@@ -114,7 +121,10 @@ object PlayerFactory {
 
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            // v2.19.0: 4-Screen me bhi FFmpeg extension ON
+            // (uper create() wali note) — AC3/DTS wale channels
+            // yahan bhi software se decode hon ge.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         return ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
