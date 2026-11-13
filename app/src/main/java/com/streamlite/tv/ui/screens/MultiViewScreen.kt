@@ -49,6 +49,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
@@ -82,6 +83,13 @@ import kotlinx.coroutines.withContext
  * - Players PlayerFactory.createForMultiView se bante hain (halke:
  *   480p cap + chhota buffer) taake 4 streams 2GB TV box aur 4 Mbps
  *   line par smooth chalen.
+ *
+ * 2026-11-13 (v2.14.1): awaz ki switching ka tareeka badla — pehle
+ * sirf volume 0/1 hota tha; Ahmed Bhai ke test se sabit hua ke jo
+ * screen band-awaz se shuru hoti thi, us ki awaz baad me khulti hi
+ * nahi thi (sirf shuru wali screen awaz deti thi). Ab har quadrant
+ * ka AUDIO TRACK on/off hota hai, taake awaz wala hissa har switch
+ * par taza bane. Rule wahi hai: ek waqt me ek screen ki awaz.
  */
 @Composable
 fun MultiViewScreen(
@@ -294,10 +302,17 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 // 2026-11-12 ko confirm kiya): ek waqt me SIRF EK
                 // quadrant audible — neeche audibleIdx usi ko sambhalta
                 // hai. Audio focus OFF hai: Android ka focus system
-                // quadrants ko duck/pause kar deta tha, is liye app ki
-                // apni volume hi faisla karti hai.
+                // quadrants ko duck/pause kar deta tha.
                 setAudioAttributes(AudioAttributes.DEFAULT, false)
                 volume = if (idx == 0) 1f else 0f
+                // 2026-11-13 (v2.14.1): jo quadrant shuru me audible
+                // nahi, us ka AUDIO TRACK bhi band rakho — sirf volume
+                // 0 par nahi chhorna. Wajah neeche setAudible par.
+                if (idx != 0) {
+                    trackSelectionParameters = trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                        .build()
+                }
             }
         }
     }
@@ -312,11 +327,27 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
         pausedStates[idx].value = !p.playWhenReady
     }
 
+    // 2026-11-13 (v2.14.1): awaz ab sirf VOLUME se nahi, AUDIO TRACK
+    // on/off se bhi switch hoti hai. Wajah — Ahmed Bhai ka test: speaker
+    // dabane par nishan badal jata tha, pehli wali ki awaz band bhi ho
+    // jati thi, lekin nayi wali ki awaz ati hi nahi thi; sirf wohi
+    // screen awaz deti thi jo SHURU se khuli thi. Matlab jo player
+    // band-awaz (volume 0) se shuru hua, device par us ka awaz wala
+    // rasta usi band halat me jam jata hai — baad me volume 1 karne
+    // par bhi awaz nahi khulti. Track off/on karne se us quadrant ka
+    // awaz wala hissa (renderer + AudioTrack) har dafa TAZA banta
+    // hai — bilkul wese hi jese shuru wali screen ka pehle din se
+    // khula tha. Volume bhi sath set rakha hai (dohri hifazat).
+    fun setAudible(p: ExoPlayer, audible: Boolean) {
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !audible)
+            .build()
+        p.volume = if (audible) 1f else 0f
+    }
+
     fun toggleMute(idx: Int) {
         audibleIdx = if (audibleIdx == idx) null else idx
-        players.forEachIndexed { i, p ->
-            p.volume = if (i == audibleIdx) 1f else 0f
-        }
+        players.forEachIndexed { i, p -> setAudible(p, i == audibleIdx) }
     }
 
     DisposableEffect(Unit) {
