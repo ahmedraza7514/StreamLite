@@ -41,6 +41,7 @@ import com.streamlite.tv.ui.screens.LiveTvScreen
 import com.streamlite.tv.ui.screens.LoginScreen
 import com.streamlite.tv.ui.screens.MultiViewScreen
 import com.streamlite.tv.ui.screens.PlayerScreen
+import com.streamlite.tv.ui.screens.PlayerMenuState
 import com.streamlite.tv.ui.screens.SearchScreen
 import com.streamlite.tv.ui.screens.SeriesDetailScreen
 import com.streamlite.tv.ui.screens.SeriesScreen
@@ -63,6 +64,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    // 2026-11-13 (v2.20.0): player ka koi control menu khula ho
+    // to BACK key yahin rok di jati hai — menu back button se
+    // band NAHI hoga aur app bhi peeche nahi jayegi. Menu sirf
+    // remote ke DOWN arrow se band hota hai (Ahmed Bhai ka hukum).
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (PlayerMenuState.open &&
+            event.keyCode == android.view.KeyEvent.KEYCODE_BACK &&
+            event.action == android.view.KeyEvent.ACTION_DOWN
+        ) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReporter.install(this)
