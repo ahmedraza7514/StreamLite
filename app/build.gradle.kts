@@ -26,8 +26,17 @@ android {
         // theek ki: volume ke sath AUDIO TRACK bhi on/off hota hai
         // (jo screen band-awaz se shuru hoti thi, us ki awaz khulti
         // hi nahi thi). Baqi sab v2.14.0 jesa hi hai.
-        versionCode = 19
-        versionName = "2.14.1"
+        // 2026-11-13: v2.15.0 — (1) Homepage ka NAYA design Ahmed
+        // Bhai ke reference theme jesa: gehra kala/maroon rang,
+        // upar-dayein gol buttons, Quick Access panel, Dashboard
+        // patti (EPG nahi lagaya — un ka standing hukum hai).
+        // (2) Startup tez: splash ab pehle frame se chalta hai,
+        // session load us ke peeche hota hai; splash par video ke
+        // pehle frame tak logo+naam ka poster rehta hai.
+        // (3) MultiView ki awaz v2.14.1 wali hi hai (koi tabdeeli
+        // nahi is build me).
+        versionCode = 20
+        versionName = "2.15.0"
     }
 
     buildTypes {
