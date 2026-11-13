@@ -111,8 +111,11 @@ import kotlinx.coroutines.withContext
 // bheje hue rang par — Rosewood #6A040F. Glow usi rang ka
 // thoda roshan shade hai taake radial gehrai barqarar rahe,
 // lekin page ka asal rang 6A040F hi nazar aye.
-private val HomeBackground = Color(0xFF6A040F)
-private val HomeGlow = Color(0xFF7D0A1B)
+// 2026-11-13 (v2.20.2): rang phir badla — ab "Black bean"
+// #350616 (Ahmed Bhai ki nayi attached image). Glow usi ka
+// roshan shade.
+private val HomeBackground = Color(0xFF350616)
+private val HomeGlow = Color(0xFF4A0A1E)
 private val HomeCard = Color(0xFF17181F)
 private val HomePanel = Color(0xFF101116)
 private val HomeSurface = Color(0xFF1B1C24)
@@ -148,7 +151,9 @@ fun HomeScreen(
         }
     }
 
-    val liveCount = DataRepository.liveStreams?.size ?: 0
+    // v2.20.2: liveStreams na ho (taaza opening) to mehfooz
+    // shuda aakhri gintee dikhao — cards khaali na lagen.
+    val liveCount = DataRepository.liveStreams?.size ?: DataRepository.liveTotalCount
     val vodCount = DataRepository.vodTotalCount
     val seriesCount = DataRepository.seriesTotalCount
 
