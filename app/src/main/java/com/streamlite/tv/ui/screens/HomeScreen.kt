@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -71,6 +72,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import com.streamlite.tv.R
 import com.streamlite.tv.data.DataRepository
+import com.streamlite.tv.data.ThumbnailPreloader
+import kotlinx.coroutines.delay
 import com.streamlite.tv.data.LoginSession
 import com.streamlite.tv.data.LoginType
 import com.streamlite.tv.data.XtreamClient
@@ -397,6 +400,24 @@ private fun HomeQuickAccessPanel(
     modifier: Modifier = Modifier,
     tight: Boolean = false,
 ) {
+    // 2026-11-13 (v2.18.0, Point 5): "Update Thumbnails" ki halat —
+    // preload chal raha ho to progress (done / total), khatam ho
+    // to kitni images load huin aur kitni FAIL (mare hue links).
+    val thumbContext = LocalContext.current
+    var thumbStatus by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        while (true) {
+            thumbStatus = when {
+                ThumbnailPreloader.running ->
+                    "Thumbnails: ${ThumbnailPreloader.done} / ${ThumbnailPreloader.total}"
+                ThumbnailPreloader.total > 0 ->
+                    "Thumbnails: ${ThumbnailPreloader.total - ThumbnailPreloader.failed} load, " +
+                        "${ThumbnailPreloader.failed} fail"
+                else -> ""
+            }
+            delay(700)
+        }
+    }
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
@@ -427,6 +448,23 @@ private fun HomeQuickAccessPanel(
                     onClick = { onNavigate(Screen.Sync()) },
                     tight = tight,
                 )
+                // 2026-11-13 (v2.18.0, Point 5): Ahmed Bhai ka
+                // hukum — sirf title images/logos taaza karne ka
+                // ALAG button. Media pehle se load ho to sirf
+                // thumbnails chalte hain; na ho to pehle sync
+                // wali screen (us me thumbnails bhi shamil hain).
+                HomeSideRow(
+                    icon = Icons.Filled.Image,
+                    label = "Update Thumbnails",
+                    onClick = {
+                        if (DataRepository.liveStreams != null) {
+                            DataRepository.startThumbnailUpdate(thumbContext)
+                        } else {
+                            onNavigate(Screen.Sync())
+                        }
+                    },
+                    tight = tight,
+                )
                 HomeSideRow(
                     icon = Icons.Filled.History,
                     label = "Catch Up",
@@ -438,6 +476,16 @@ private fun HomeQuickAccessPanel(
                     label = "Account",
                     onClick = { onNavigate(Screen.Account) },
                     tight = tight,
+                )
+            }
+            // Thumbnails ki halat (chal rahi ho to progress,
+            // khatam ho to load/fail ka hisaab) — Point 5.
+            if (thumbStatus.isNotEmpty()) {
+                Spacer(Modifier.height(if (tight) 6.dp else 10.dp))
+                Text(
+                    thumbStatus,
+                    fontSize = if (tight) 11.sp else 12.sp,
+                    color = HomeTextDim,
                 )
             }
         }
