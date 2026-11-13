@@ -26,8 +26,16 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
             // a bad URL fail FAST so the fallback tile shows instead of blank.
             .okHttpClient {
                 OkHttpClient.Builder()
-                    .connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(8, TimeUnit.SECONDS)
+                    // 2026-11-13 (v2.17.0): timeouts barha diye —
+                    // pehle connect 5s / read 8s tha (Batch 7 ka
+                    // TV-box faisla). Ahmed Bhai ki 4 Mbps line par
+                    // slow logo wali sites 8 second me haar jati
+                    // theen, is liye asal logos bhi nahi ate thay.
+                    // Ab waqt zyada hai; loading ke doran fallback
+                    // icon wese hi nazar ata hai.
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(20, TimeUnit.SECONDS)
+                    .writeTimeout(10, TimeUnit.SECONDS)
                     // 2026-11-05 (Batch 8 fix): some icon hosts (esp. news logos)
                     // return 403 to non-browser clients and drop requests on slow
                     // 4 Mbps — so the REAL image never arrived and only the fallback
@@ -69,7 +77,13 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
                 // nahi ho pate thay. Ab 1GB disk cache (sirf storage,
                 // RAM par koi bojh nahi).
                 DiskCache.Builder()
-                    .directory(cacheDir.resolve("coil"))
+                    // 2026-11-13 (v2.17.0): jagah bhi badal di —
+                    // pehle cacheDir tha, jise Android storage kam
+                    // hone par KHUD saaf kar deta hai (download ki
+                    // hui images har dafa ur jati theen). Ab
+                    // filesDir — app ki permanent jagah, system
+                    // ise khud saaf nahi karta.
+                    .directory(filesDir.resolve("coil_images"))
                     .maxSizeBytes(1024L * 1024 * 1024)
                     .build()
             }
