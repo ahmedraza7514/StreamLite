@@ -40,6 +40,7 @@ object ThumbnailPreloader {
         context: Context,
         urls: List<String>,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+        priorityCount: Int = 0,
     ) {
         val unique = urls.mapNotNull { u ->
             val t = u.trim()
@@ -58,16 +59,28 @@ object ThumbnailPreloader {
             val counter = AtomicInteger(0)
             val sem = Semaphore(8)
             try {
-                unique.map { url ->
+                unique.mapIndexed { idx, url ->
                     async {
                         sem.withPermit {
                             try {
-                                val req = ImageRequest.Builder(appCtx)
-                                    .data(url)
-                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                    .memoryCachePolicy(CachePolicy.DISABLED)
-                                    .build()
-                                loader.execute(req)
+                                // 2026-11-13 (v2.16.0): pehle
+                                // [priorityCount] URLs (Live TV logos)
+                                // har surat download hon ge; us ke baad
+                                // wale (VOD/Series posters) SIRF tab jab
+                                // disk cache me jagah baqi ho — warna
+                                // posters ki bheer Live logos ko cache
+                                // se nikal deti hai.
+                                val dc = loader.diskCache
+                                val cacheFull = dc != null &&
+                                    dc.size > dc.maxSize * 9 / 10
+                                if (idx < priorityCount || !cacheFull) {
+                                    val req = ImageRequest.Builder(appCtx)
+                                        .data(url)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .memoryCachePolicy(CachePolicy.DISABLED)
+                                        .build()
+                                    loader.execute(req)
+                                }
                             } catch (_: Exception) {
                                 // Dead/slow icon URL — skip it, never fail the batch.
                             } finally {
