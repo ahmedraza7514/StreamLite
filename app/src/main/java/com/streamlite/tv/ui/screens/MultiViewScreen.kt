@@ -38,8 +38,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -127,6 +137,15 @@ private fun ChannelPicker(
         }
     }
     var query by remember { mutableStateOf("news") }
+    // 2026-11-13 (v2.20.0, TV rule): 4 channels select ho jayen to
+    // remote ki selection KHUD "Start Watching" button par jaye —
+    // channels ki list me wapis nahi (Ahmed Bhai ka hukum).
+    val startReq = remember { FocusRequester() }
+    LaunchedEffect(selected.size) {
+        if (selected.size == 4) {
+            try { startReq.requestFocus() } catch (_: Exception) { /* no-op */ }
+        }
+    }
     // 2026-11-05 (Batch 8, Point 4): separate OVERALL category search below
     // the channel search — filters channels by their category name.
     var catQuery by remember { mutableStateOf("") }
@@ -215,6 +234,10 @@ private fun ChannelPicker(
                     onClick = { onToggle(ch) },
                     modifier = Modifier
                         .onFocusChanged { rowFocused = it.isFocused }
+                        // v2.20.0: 4 select ho jayen to ghair-
+                        // muntakhib channels par selection na jaye
+                        // (sirf chune hue ko hatta sakte hain).
+                        .focusProperties { canFocus = selected.size < 4 || isSel }
                         .border(
                             width = if (rowFocused) 3.dp else 0.dp,
                             color = if (rowFocused) Color.White else Color.Transparent,
@@ -245,7 +268,7 @@ private fun ChannelPicker(
         Button(
             onClick = onStart,
             enabled = selected.size == 4,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.focusRequester(startReq).fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = SlAccent,
                 contentColor = Color.Black,
@@ -291,6 +314,14 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     }
     // Which quadrant has audio (null = all muted). Only one at a time.
     var audibleIdx by remember { mutableStateOf<Int?>(0) }
+    // 2026-11-13 (v2.20.0, TV rule): remote ki selection ka tay
+    // shuda silsila — har box me pehle play/pause, phir speaker,
+    // phir agla box. Is ke liye har button ka apna FocusRequester.
+    val playReqs = remember { List(4) { FocusRequester() } }
+    val speakerReqs = remember { List(4) { FocusRequester() } }
+    LaunchedEffect(Unit) {
+        try { playReqs[0].requestFocus() } catch (_: Exception) { /* no-op */ }
+    }
     // Per-quadrant pause state (independent for each screen)
     val pausedStates = remember { List(4) { mutableStateOf(false) } }
 
@@ -323,6 +354,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 isPaused = pausedStates[0].value,
                 onTap = { togglePause(0) },
                 onToggleMute = { toggleMute(0) },
+                idx = 0,
+                playReqs = playReqs,
+                speakerReqs = speakerReqs,
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
@@ -332,6 +366,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 isPaused = pausedStates[1].value,
                 onTap = { togglePause(1) },
                 onToggleMute = { toggleMute(1) },
+                idx = 1,
+                playReqs = playReqs,
+                speakerReqs = speakerReqs,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -344,6 +381,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 isPaused = pausedStates[2].value,
                 onTap = { togglePause(2) },
                 onToggleMute = { toggleMute(2) },
+                idx = 2,
+                playReqs = playReqs,
+                speakerReqs = speakerReqs,
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
@@ -353,6 +393,9 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 isPaused = pausedStates[3].value,
                 onTap = { togglePause(3) },
                 onToggleMute = { toggleMute(3) },
+                idx = 3,
+                playReqs = playReqs,
+                speakerReqs = speakerReqs,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -370,6 +413,9 @@ private fun QuadPlayer(
     isPaused: Boolean,
     onTap: () -> Unit,
     onToggleMute: () -> Unit,
+    idx: Int,
+    playReqs: List<FocusRequester>,
+    speakerReqs: List<FocusRequester>,
     modifier: Modifier = Modifier,
 ) {
     var quadFocused by remember { mutableStateOf(false) }
@@ -395,7 +441,11 @@ private fun QuadPlayer(
                 shape = RoundedCornerShape(4.dp),
             )
             .onFocusChanged { quadFocused = it.isFocused }
-            .clickable { onTap() },
+            // v2.20.0: box khud ab D-pad focus NAHI leta — selection
+            // sirf play/pause aur speaker buttons par chalti hai
+            // (Ahmed Bhai ka tay shuda silsila). Touch par tap se
+            // pause/play waisa hi hai (pointerInput, focus nahi).
+            .pointerInput(Unit) { detectTapGestures { onTap() } },
     ) {
         AndroidView(
             factory = { ctx ->
@@ -459,7 +509,27 @@ private fun QuadPlayer(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(6.dp)
-                .onFocusChanged { speakerFocused = it.isFocused },
+                .onFocusChanged { speakerFocused = it.isFocused }
+                .focusRequester(speakerReqs[idx])
+                // v2.20.0 silsila: speaker se AAGE (Right/Down) =
+                // agle box ka play/pause; PECHHE (Left/Up) = isi
+                // box ka play/pause.
+                .onPreviewKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (ev.key) {
+                        Key.DirectionRight, Key.DirectionDown -> {
+                            if (idx < 3) {
+                                playReqs[idx + 1].requestFocus()
+                                true
+                            } else false
+                        }
+                        Key.DirectionLeft, Key.DirectionUp -> {
+                            playReqs[idx].requestFocus()
+                            true
+                        }
+                        else -> false
+                    }
+                },
         ) {
             Box(
                 modifier = Modifier.padding(8.dp),
@@ -473,37 +543,54 @@ private fun QuadPlayer(
                 )
             }
         }
-        // 2026-11-04 (Batch 4, Point 10): play/pause button, visible when the
-        // quadrant has D-pad focus — D-pad OK here toggles play/pause for
-        // that quadrant (same as OK on the quadrant itself).
-        if (quadFocused) {
-            Card(
-                onClick = onTap,
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Black,
-                    contentColor = Color.White,
-                ),
-                border = androidx.compose.foundation.BorderStroke(
-                    width = if (playBtnFocused) 2.dp else 1.dp,
-                    color = if (playBtnFocused) Color.White else Color(0xFF555555),
-                ),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 52.dp)
-                    .onFocusChanged { playBtnFocused = it.isFocused },
+        // 2026-11-04 (Batch 4, Point 10): play/pause button.
+        // 2026-11-13 (v2.20.0): ab ye button HAR WAQT mojood hai
+        // (pehle sirf box focus par ata tha) — kyunke remote ki
+        // selection ka pehla stop yahi hai: box me pehle
+        // play/pause, phir speaker, phir agla box.
+        Card(
+            onClick = onTap,
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (playBtnFocused) 2.dp else 1.dp,
+                color = if (playBtnFocused) Color.White else Color(0xFF555555),
+            ),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 6.dp, end = 52.dp)
+                .onFocusChanged { playBtnFocused = it.isFocused }
+                .focusRequester(playReqs[idx])
+                .onPreviewKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (ev.key) {
+                        Key.DirectionRight, Key.DirectionDown -> {
+                            speakerReqs[idx].requestFocus()
+                            true
+                        }
+                        Key.DirectionLeft, Key.DirectionUp -> {
+                            if (idx > 0) {
+                                speakerReqs[idx - 1].requestFocus()
+                                true
+                            } else false
+                        }
+                        else -> false
+                    }
+                },
+        ) {
+            Box(
+                modifier = Modifier.padding(8.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier.padding(8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                        contentDescription = if (isPaused) "Play" else "Pause",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                Icon(
+                    imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    contentDescription = if (isPaused) "Play" else "Pause",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
