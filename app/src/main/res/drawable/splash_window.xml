@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2026-11-13 (v2.19.0, Point 6): app khulte hi pehle frame par
+     logo — Android ye background process start hote hi dikha deta
+     hai, is liye splash video ane tak ka khaali intezar khatam.
+     Neeche wohi gehra rang jo app ka background hai, darmiyan me
+     app ka apna logo (play wala nishan). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/sl_background" />
+    <item
+        android:width="120dp"
+        android:height="120dp"
+        android:gravity="center"
+        android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>
