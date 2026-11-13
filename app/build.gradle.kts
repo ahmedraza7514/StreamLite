@@ -93,8 +93,15 @@ android {
         // dashboard patti, upar ke gol buttons) par neeche/sides
         // se SAFED shadow — cards ka apna kala elevation 0 karke
         // whiteCardShadow helper se.
-        versionCode = 28
-        versionName = "2.20.3"
+        // 2026-11-13: v2.20.4 — (1) Home background ka tajurba:
+        // sirf rang #006F7C (gehra teal), glow #0B8291. (2)
+        // "Update Thumbnails" button ke bilkul neeche loading
+        // (ghumta pahiya) + count (done/total, phir load/fail).
+        // (3) QUICK ACCESS panel chaora (weight 0.28 -> 0.34),
+        // jaga tabdeel nahi. (4) Panel se Catch Up row khatam
+        // (Ahmed Bhai ki ijazat se).
+        versionCode = 29
+        versionName = "2.20.4"
     }
 
     buildTypes {
