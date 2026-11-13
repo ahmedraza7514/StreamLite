@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,8 +121,11 @@ import kotlinx.coroutines.withContext
 // 2026-11-13 (v2.20.3): mazeed GEHRA SURKH — ab background
 // #2A0208 hai aur glow #40040F (Black bean se ek darja gehra
 // aur surkh ki taraf).
-private val HomeBackground = Color(0xFF2A0208)
-private val HomeGlow = Color(0xFF40040F)
+// 2026-11-13 (v2.20.4): rang ka naya tajurba — Ahmed Bhai ne
+// kaha sirf homepage ka background #006F7C (gehra teal) rakho,
+// "dekhty hain kea hota hy". Glow usi rang ka roshan shade.
+private val HomeBackground = Color(0xFF006F7C)
+private val HomeGlow = Color(0xFF0B8291)
 
 // 2026-11-13 (v2.20.3): homepage ke cards/elements ke liye
 // SAFED shadow — neeche aur sides par halki safed chamak
@@ -324,7 +328,10 @@ fun HomeScreen(
                         HomeQuickAccessPanel(
                             onNavigate = onNavigate,
                             onUpdateThumbnails = updateThumbnails,
-                            modifier = Modifier.weight(0.28f).fillMaxHeight(),
+                            // v2.20.4: panel mazeed CHAORA (0.28 ->
+                            // 0.34) — jaga wahi (dayein taraf hi
+                            // hai), Ahmed Bhai ka hukum.
+                            modifier = Modifier.weight(0.34f).fillMaxHeight(),
                             tight = tight,
                         )
                     }
@@ -495,27 +502,38 @@ private fun HomeQuickAccessPanel(
                     onClick = onUpdateThumbnails,
                     tight = tight,
                 )
-                HomeSideRow(
-                    icon = Icons.Filled.History,
-                    label = "Catch Up",
-                    onClick = { onNavigate(Screen.LiveTv) },
-                    tight = tight,
-                )
+                // 2026-11-13 (v2.20.4): thumbnails ki loading aur
+                // count AB button ke BILKUL neeche hai (Ahmed Bhai
+                // ka hukum — pehle ye panel ke aakhir me thi).
+                // Chalti ho to ghumta pahiya + "done / total"
+                // gintee; khatam ho to load/fail ka hisaab.
+                if (thumbStatus.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (ThumbnailPreloader.running) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            thumbStatus,
+                            fontSize = if (tight) 11.sp else 12.sp,
+                            color = HomeTextDim,
+                        )
+                    }
+                }
+                // 2026-11-13 (v2.20.4): Catch Up row panel se
+                // HATA di gayi — Ahmed Bhai ki ijazat se (panel
+                // chaora karne aur thumbnails wali line ki jagah
+                // ke liye). Catch Up ka kaam Live TV card se
+                // wese hi ho jata hai.
                 HomeSideRow(
                     icon = Icons.Filled.Person,
                     label = "Account",
                     onClick = { onNavigate(Screen.Account) },
                     tight = tight,
-                )
-            }
-            // Thumbnails ki halat (chal rahi ho to progress,
-            // khatam ho to load/fail ka hisaab) — Point 5.
-            if (thumbStatus.isNotEmpty()) {
-                Spacer(Modifier.height(if (tight) 6.dp else 10.dp))
-                Text(
-                    thumbStatus,
-                    fontSize = if (tight) 11.sp else 12.sp,
-                    color = HomeTextDim,
                 )
             }
         }
