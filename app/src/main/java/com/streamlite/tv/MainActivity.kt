@@ -137,11 +137,17 @@ private fun AppRoot() {
     }
 
     // Splash khatam + session load: jo pehle ho jaye, wo doosre ka
-    // intezar karta hai; dono hon to Sync (logged in) ya Login.
+    // intezar karta hai; dono hon to agli screen.
+    // 2026-11-13 (v2.18.0, Point 4): Ahmed Bhai ka hukum — har
+    // opening par "Update Media Contents" AUTO update NA ho.
+    // Saved session hai to seedha HOME; sync sirf do surton me:
+    // (1) naye login ke baad (goHome), (2) jab wo khud Update
+    // media dabayen. Categories ki screens apna data khud load
+    // kar leti hain, is liye baghair sync ke bhi sab chalta hai.
     LaunchedEffect(splashDone, bootReady) {
         if (splashDone && bootReady) {
             navStack.clear()
-            navStack.add(if (session != null) Screen.Sync() else Screen.Login)
+            navStack.add(if (session != null) Screen.Home else Screen.Login)
         }
     }
 
