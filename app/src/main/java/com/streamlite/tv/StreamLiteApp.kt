@@ -3,6 +3,7 @@ package com.streamlite.tv
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import com.streamlite.tv.data.DataRepository
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import okhttp3.OkHttpClient
@@ -14,6 +15,14 @@ import java.util.concurrent.TimeUnit
 // 15% is plenty for thumbnails and leaves RAM for ExoPlayer.
 
 class StreamLiteApp : Application(), ImageLoaderFactory {
+    // 2026-11-13 (v2.20.2): app khulte hi pichli sync ki gintee
+    // (Live/Movies/Series counts) wapis parh lo — Home ke cards
+    // par foran nazar aye gi, baghair kisi auto-update ke.
+    override fun onCreate() {
+        super.onCreate()
+        DataRepository.loadCounts(this)
+    }
+
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .memoryCache {
