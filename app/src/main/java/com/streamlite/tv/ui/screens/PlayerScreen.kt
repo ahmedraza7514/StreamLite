@@ -380,7 +380,26 @@ fun PlayerScreen(
             modifier = playerModifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { poke() },
+            ) {
+                // 2026-11-13 (v2.20.2): Ahmed Bhai ka hukum —
+                // screen par click/tap ho to player controls band
+                // ho jayein. Menu khula ho to pehle wo + bar dono
+                // band; sirf bar khuli ho to bar band; bar band
+                // ho to tap bar khol dega (purana rawaiya). Pehle
+                // tap sirf poke() karta tha — menu khula ho to
+                // mobile par kuch band hi nahi hota tha.
+                if (showZoomMenu || showAudioMenu || showSubsMenu || showVbPanel) {
+                    showZoomMenu = false
+                    showAudioMenu = false
+                    showSubsMenu = false
+                    showVbPanel = false
+                    controlsVisible = false
+                } else if (controlsVisible) {
+                    controlsVisible = false
+                } else {
+                    poke()
+                }
+            },
         )
 
         // Buffering spinner (shows even when the bar is hidden)
