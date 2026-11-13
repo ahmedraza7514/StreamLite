@@ -79,8 +79,16 @@ android {
         // hai (THUMBNAILS step + intezar khatam); thumbnails
         // BACKGROUND me load hoti rehti hain, progress Homepage
         // ke panel me nazar ati hai. Baqi v2.20.0 waisa hi hai.
-        versionCode = 26
-        versionName = "2.20.1"
+        // 2026-11-13: v2.20.2 — (1) Home cards ke counts gayab
+        // thay (auto-update band hone se app gintee bhool jati
+        // thi): ab counts sync par mehfooz (SharedPreferences
+        // "sl_counts") aur app khulte hi load — cards par
+        // aakhri gintee hamesha nazar, update phir bhi manual.
+        // (2) Player: screen par tap/click se controls + menu
+        // band (mobile ke liye — no-auto-close wala rule TV ka
+        // tha). (3) Home background "Black bean" #350616.
+        versionCode = 27
+        versionName = "2.20.2"
     }
 
     buildTypes {
