@@ -26,21 +26,20 @@ android {
         // theek ki: volume ke sath AUDIO TRACK bhi on/off hota hai
         // (jo screen band-awaz se shuru hoti thi, us ki awaz khulti
         // hi nahi thi). Baqi sab v2.14.0 jesa hi hai.
-        // 2026-11-13: v2.16.0 — Ahmed Bhai ke 13-11 wale notes par
-        // SAB points: (1) card logos reference walay (TV set + LIVE
-        // pill title, popcorn balti, kala clapper) aur chhoti
-        // unchai par cards/panel khud sikor jate hain — koi hissa
-        // kata nahi. (2) Neeche wale naam/count chhote. (3)
-        // Dashboard patti patli. (4) 4-Screen awaz: jo screen
-        // audible banti hai us ka player stop+prepare se taza
-        // chalta hai (RIGHT column khamosh rehta tha). (5) Splash
-        // se pehle wala poster HATA diya — direct video; splash
-        // video halki kar di (8MB -> ~1MB, 10s -> 5s). (6) Images:
-        // Coil disk cache 100MB -> 1GB aur sync par Live logos
-        // pehle/priority se preload — pehle posters ki bheer Live
-        // logos ko cache se nikal deti thi.
-        versionCode = 21
-        versionName = "2.16.0"
+        // 2026-11-13: v2.17.0 — Ahmed Bhai ka hukum: 4-Screen
+        // (MultiView) ka code BACKUP wala wapas lagaya gaya hai —
+        // v2.11 (build #236) wala, jo v2.13.2 me final tha.
+        // MultiViewScreen.kt file bilkul jesi backup me thi wesi
+        // hai, koi tabdeeli nahi (volume wala purana tareeqa;
+        // v2.14.1 ki track switching aur v2.16.0 ka stop+prepare
+        // dono khatam). Images ki asal kamzoriyan bhi durust:
+        // cache ab filesDir me (Android use khud saaf nahi
+        // karta), image timeouts 5s/8s se barha kar 10s/20s
+        // (4 Mbps par slow logo sites haar jati theen). Baqi
+        // sab v2.16.0 jesa hi hai (naya home design, tez
+        // startup, 1GB image cache).
+        versionCode = 22
+        versionName = "2.17.0"
     }
 
     buildTypes {
