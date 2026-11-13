@@ -4,6 +4,8 @@ import android.app.Activity
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.infiniteRepeatable
@@ -58,6 +60,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -114,8 +117,24 @@ import kotlinx.coroutines.withContext
 // 2026-11-13 (v2.20.2): rang phir badla — ab "Black bean"
 // #350616 (Ahmed Bhai ki nayi attached image). Glow usi ka
 // roshan shade.
-private val HomeBackground = Color(0xFF350616)
-private val HomeGlow = Color(0xFF4A0A1E)
+// 2026-11-13 (v2.20.3): mazeed GEHRA SURKH — ab background
+// #2A0208 hai aur glow #40040F (Black bean se ek darja gehra
+// aur surkh ki taraf).
+private val HomeBackground = Color(0xFF2A0208)
+private val HomeGlow = Color(0xFF40040F)
+
+// 2026-11-13 (v2.20.3): homepage ke cards/elements ke liye
+// SAFED shadow — neeche aur sides par halki safed chamak
+// (Ahmed Bhai ka hukum: "nechy sy sides pay white shadow do").
+// Cards ka apna kala elevation band karke har card par yehi
+// shadow lagta hai.
+private fun Modifier.whiteCardShadow(shape: Shape): Modifier = this.shadow(
+    elevation = 12.dp,
+    shape = shape,
+    clip = false,
+    ambientColor = Color.White.copy(alpha = 0.45f),
+    spotColor = Color.White.copy(alpha = 0.65f),
+)
 private val HomeCard = Color(0xFF17181F)
 private val HomePanel = Color(0xFF101116)
 private val HomeSurface = Color(0xFF1B1C24)
@@ -384,14 +403,15 @@ private fun HomeIconButton(
         modifier = Modifier
             .size(if (compact) 36.dp else 46.dp)
             .onFocusChanged { isFocused = it.isFocused }
-            .scale(scale),
+            .scale(scale)
+            .whiteCardShadow(CircleShape),
         shape = CircleShape,
         colors = CardDefaults.cardColors(
             containerColor = HomeSurface,
             contentColor = Color.White,
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 8.dp else 2.dp,
+            defaultElevation = 0.dp,
         ),
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -435,13 +455,13 @@ private fun HomeQuickAccessPanel(
         }
     }
     Card(
-        modifier = modifier,
+        modifier = modifier.whiteCardShadow(RoundedCornerShape(20.dp)),
         colors = CardDefaults.cardColors(
             containerColor = HomePanel,
             contentColor = Color.White,
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(if (tight) 10.dp else 16.dp)) {
             Text(
@@ -511,13 +531,13 @@ private fun HomeQuickAccessPanel(
 @Composable
 private fun HomeDashboardBar(username: String, expDate: Long) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().whiteCardShadow(RoundedCornerShape(16.dp)),
         colors = CardDefaults.cardColors(
             containerColor = HomePanel,
             contentColor = Color.White,
         ),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
@@ -620,14 +640,17 @@ private fun HomeBigCard(
         modifier = modifier
             .then(if (compact) Modifier.height(150.dp) else Modifier.fillMaxHeight())
             .onFocusChanged { isFocused = it.isFocused }
-            .scale(scale),
+            .scale(scale)
+            .whiteCardShadow(RoundedCornerShape(20.dp)),
         colors = CardDefaults.cardColors(
             containerColor = HomeCard,
             contentColor = Color.White,
         ),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 12.dp else 4.dp,
+            // v2.20.3: apna elevation 0 — safed shadow upar wale
+            // whiteCardShadow se ata hai.
+            defaultElevation = 0.dp,
         ),
     ) {
         // v2.16.0: card ki asal unchai dekh kar andar ke sizes —
