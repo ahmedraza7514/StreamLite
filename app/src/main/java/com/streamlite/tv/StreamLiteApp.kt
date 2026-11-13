@@ -60,12 +60,17 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
                     .build()
             }
             .diskCache {
-                // 2026-11-05 (Batch 6, Point 17): 50MB was too small to hold
-                // ALL preloaded thumbnails — 100MB disk cache (storage only,
-                // zero extra RAM) so the preload actually sticks.
+                // 2026-11-13 (v2.16.0): 100MB BAHUT chhota tha — kul
+                // ~93,000 images (15.8k Live logos + 69.8k VOD posters
+                // + 7.5k Series covers) us me sama hi nahi sakti
+                // theen. Live logos pehle download hote thay, phir
+                // posters ki bheer unhen cache se NIKAL deti thi —
+                // yahi wajah hai ke Live TV me zyada tar logos load
+                // nahi ho pate thay. Ab 1GB disk cache (sirf storage,
+                // RAM par koi bojh nahi).
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("coil"))
-                    .maxSizeBytes(100L * 1024 * 1024)
+                    .maxSizeBytes(1024L * 1024 * 1024)
                     .build()
             }
             .build()
