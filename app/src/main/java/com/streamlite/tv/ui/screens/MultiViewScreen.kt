@@ -343,6 +343,20 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !audible)
             .build()
         p.volume = if (audible) 1f else 0f
+        if (audible) {
+            // 2026-11-13 (v2.16.0): v2.14.1 ke baad LEFT column
+            // (upar-neeche bayein) ki awaz ane lagi, lekin RIGHT
+            // column (players 1 aur 3) phir bhi khamosh thay — un ka
+            // awaz wala hissa pehli tayyari me kahin atak jata hai.
+            // Is liye jo screen audible BANTI hai, us ka player usi
+            // waqt ROK kar dobara tayyar (stop + prepare) kiya jata
+            // hai: awaz ka poora rasta taza banta hai. Video us
+            // screen par 1-3 sec ruk kar live edge se phir chalega
+            // — ye is tareeqe ki qeemat hai.
+            p.stop()
+            p.prepare()
+            p.play()
+        }
     }
 
     fun toggleMute(idx: Int) {
