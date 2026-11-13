@@ -1,6 +1,7 @@
 package com.streamlite.tv.player
 
 import android.content.Context
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -48,6 +49,13 @@ object PlayerFactory {
             setParameters(
                 buildUponParameters()
                     .setMaxVideoSize(1280, 720)
+                    // 2026-11-13 (v2.18.0, Points 1-2): audio me AAC
+                    // ko tarjeeh — bohat se phones/TV boxes me AC3 /
+                    // E-AC3 ka decoder hota hi nahi; jahan stream
+                    // AAC bhi deti hai wahan pehle khamosh (AC3)
+                    // track chun liya jata tha. Ab AAC mile to wahi
+                    // chalegi; sirf AC3 ho to wahi rahe gi.
+                    .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_MPEG)
                     .setForceHighestSupportedBitrate(false),
             )
         }
@@ -97,6 +105,9 @@ object PlayerFactory {
             setParameters(
                 buildUponParameters()
                     .setMaxVideoSize(854, 480)
+                    // v2.18.0: AAC audio ko tarjeeh (uper create()
+                    // wali note dekho) — 4-Screen me bhi wohi rule.
+                    .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AAC, MimeTypes.AUDIO_MPEG)
                     .setForceHighestSupportedBitrate(false),
             )
         }
