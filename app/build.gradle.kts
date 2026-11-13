@@ -47,8 +47,19 @@ android {
         // sync sirf naye login ya manual Update media par.
         // (5) Home QUICK ACCESS me alag "Update Thumbnails"
         // button. (6) splash 1.2s me aage barhta hai.
-        versionCode = 23
-        versionName = "2.18.0"
+        // 2026-11-13: v2.19.0 — (1-2) AWAZ ka asal hal: FFmpeg
+        // software decoder jama (media3-ffmpeg-decoder 1.5.0+1,
+        // Media3 1.4.1 se 1.5.0) + PlayerFactory me extension
+        // renderers ON — AC3/E-AC3/DTS ab software se decode
+        // hon ge. (5) Update Thumbnails button khud-kafi: ab
+        // Sync screen par nahi bhejta, khud catalog load karke
+        // thumbnails chalata hai. (6) TASHEEH: splash ka time
+        // purana hi (1.2s wali tabdeeli wapis); asal fix —
+        // themes.xml ki window background me logo, taake app
+        // khulte hi pehle frame par kuch nazar aye, splash se
+        // pehle ka khaali intezar khatam.
+        versionCode = 24
+        versionName = "2.19.0"
     }
 
     buildTypes {
@@ -95,10 +106,17 @@ dependencies {
     implementation("androidx.tv:tv-foundation:1.0.0")
 
     // Media3 ExoPlayer (playback engine)
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
-    implementation("androidx.media3:media3-common:1.4.1")
+    implementation("androidx.media3:media3-exoplayer:1.5.0")
+    implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
+    implementation("androidx.media3:media3-ui:1.5.0")
+    implementation("androidx.media3:media3-common:1.5.0")
+    // 2026-11-13 (v2.19.0): FFmpeg software audio decoder
+    // (Jellyfin ki published library, Maven Central) — AC3 /
+    // E-AC3 / DTS jese formats jo bohat se phones ke apne
+    // decoder nahi chala sakte, ab software se decode hon ge.
+    // Media3 ko 1.5.0 is liye kiya ke decoder isi version ke
+    // sath jura hua hai.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
 
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
