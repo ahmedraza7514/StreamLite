@@ -141,6 +141,17 @@ import kotlinx.coroutines.launch
  * [thumb]: logo/poster URL shown as the title thumbnail in the bar
  * (falls back to a letter tile when empty).
  */
+
+/**
+ * 2026-11-13 (v2.20.0): koi player menu (ZOOM / AUDIO / SUBS /
+ * VOL) khula hai ya nahi — MainActivity is ko parh kar BACK key
+ * ko rokta hai, taake menu back button se band na ho (Ahmed
+ * Bhai ka hukum: menu sirf DOWN key se band hoga).
+ */
+object PlayerMenuState {
+    @Volatile var open: Boolean = false
+}
+
 @Composable
 fun PlayerScreen(
     url: String,
@@ -295,9 +306,19 @@ fun PlayerScreen(
     }
 
     // Auto-hide the bar 3s after the last interaction (XCIPTV behaviour)
-    LaunchedEffect(touchTick) {
-        delay(3000)
-        controlsVisible = false
+    // 2026-11-13 (v2.20.0): koi control menu khula ho to bar AUTO
+    // band NAHI hogi — menu jab tak khula hai, bar bhi khuli
+    // rahe gi (Ahmed Bhai ka hukum).
+    val anyMenuOpen = showZoomMenu || showAudioMenu || showSubsMenu || showVbPanel
+    LaunchedEffect(anyMenuOpen) { PlayerMenuState.open = anyMenuOpen }
+    DisposableEffect(Unit) {
+        onDispose { PlayerMenuState.open = false }
+    }
+    LaunchedEffect(touchTick, anyMenuOpen) {
+        if (!anyMenuOpen) {
+            delay(3000)
+            controlsVisible = false
+        }
     }
 
     // Playtime ticker (only while the bar is up — saves battery on the box).
@@ -506,7 +527,11 @@ fun PlayerScreen(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
-                                    maxLines = 1,
+                                    // 2026-11-13 (v2.20.0): title
+                                    // ab WRAP hota hai (2 lines tak)
+                                    // — pehle ek line me kat jata
+                                    // tha (Ahmed Bhai ka hukum).
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 if (info.isNotEmpty()) {
@@ -606,15 +631,16 @@ fun PlayerScreen(
                                     onDismissRequest = { showZoomMenu = false },
                                     modifier = Modifier.background(Color.Black),
                                 ) {
+                                    // v2.20.0: PlayerMenuItem — jis item
+                                    // par remote ki selection ho, us par
+                                    // safed border; aakhri item par DOWN
+                                    // dabane se menu band ho jata hai.
                                     zoomModes.forEachIndexed { idx, mode ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    mode.label,
-                                                    color = if (idx == zoomIdx) SlAccent else Color.White,
-                                                    fontSize = 15.sp,
-                                                )
-                                            },
+                                        PlayerMenuItem(
+                                            label = mode.label,
+                                            selected = idx == zoomIdx,
+                                            isLast = idx == zoomModes.lastIndex,
+                                            onClose = { showZoomMenu = false },
                                             onClick = { applyZoom(idx); poke() },
                                         )
                                     }
@@ -642,39 +668,42 @@ fun PlayerScreen(
                                 ) {
                                     val audioGroups = trackSnapshot?.groups
                                         ?.filter { it.type == C.TRACK_TYPE_AUDIO } ?: emptyList()
-                                    if (audioGroups.isEmpty()) {
-                                        DropdownMenuItem(
-                                            text = { Text("No tracks available.", color = Color(0xFFAAAAAA), fontSize = 15.sp) },
+                                    val audioItems = audioGroups.flatMap { group ->
+                                        (0 until group.length).map { i -> group to i }
+                                    }
+                                    if (audioItems.isEmpty()) {
+                                        PlayerMenuItem(
+                                            label = "No tracks available.",
+                                            selected = false,
+                                            isLast = true,
+                                            onClose = { showAudioMenu = false },
                                             onClick = {},
                                         )
                                     } else {
-                                        audioGroups.forEach { group ->
-                                            for (i in 0 until group.length) {
-                                                val fmt = group.getTrackFormat(i)
-                                                val label = fmt.label
-                                                    ?: fmt.language?.let { "Lang: $it" }
-                                                    ?: "Track ${i + 1}"
-                                                val selected = group.isSelected && group.length == 1
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            label,
-                                                            color = if (selected) SlAccent else Color.White,
-                                                            fontSize = 15.sp,
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        try {
-                                                            player.trackSelectionParameters = player.trackSelectionParameters
-                                                                .buildUpon()
-                                                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
-                                                                .build()
-                                                        } catch (_: Exception) {}
-                                                        showAudioMenu = false
-                                                        poke()
-                                                    },
-                                                )
-                                            }
+                                        audioItems.forEachIndexed { pos, pair ->
+                                            val group = pair.first
+                                            val i = pair.second
+                                            val fmt = group.getTrackFormat(i)
+                                            val label = fmt.label
+                                                ?: fmt.language?.let { "Lang: $it" }
+                                                ?: "Track ${i + 1}"
+                                            val selected = group.isSelected && group.length == 1
+                                            PlayerMenuItem(
+                                                label = label,
+                                                selected = selected,
+                                                isLast = pos == audioItems.lastIndex,
+                                                onClose = { showAudioMenu = false },
+                                                onClick = {
+                                                    try {
+                                                        player.trackSelectionParameters = player.trackSelectionParameters
+                                                            .buildUpon()
+                                                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                                            .build()
+                                                    } catch (_: Exception) {}
+                                                    showAudioMenu = false
+                                                    poke()
+                                                },
+                                            )
                                         }
                                     }
                                 }
@@ -696,8 +725,16 @@ fun PlayerScreen(
                                     onDismissRequest = { showSubsMenu = false },
                                     modifier = Modifier.background(Color.Black),
                                 ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Off", color = Color.White, fontSize = 15.sp) },
+                                    val textGroups = trackSnapshot?.groups
+                                        ?.filter { it.type == C.TRACK_TYPE_TEXT } ?: emptyList()
+                                    val subItems = textGroups.flatMap { group ->
+                                        (0 until group.length).map { i -> group to i }
+                                    }
+                                    PlayerMenuItem(
+                                        label = "Off",
+                                        selected = false,
+                                        isLast = subItems.isEmpty(),
+                                        onClose = { showSubsMenu = false },
                                         onClick = {
                                             try {
                                                 player.trackSelectionParameters = player.trackSelectionParameters
@@ -709,42 +746,40 @@ fun PlayerScreen(
                                             poke()
                                         },
                                     )
-                                    val textGroups = trackSnapshot?.groups
-                                        ?.filter { it.type == C.TRACK_TYPE_TEXT } ?: emptyList()
-                                    if (textGroups.isEmpty()) {
-                                        DropdownMenuItem(
-                                            text = { Text("No tracks available.", color = Color(0xFFAAAAAA), fontSize = 15.sp) },
+                                    if (subItems.isEmpty()) {
+                                        PlayerMenuItem(
+                                            label = "No tracks available.",
+                                            selected = false,
+                                            isLast = true,
+                                            onClose = { showSubsMenu = false },
                                             onClick = {},
                                         )
                                     } else {
-                                        textGroups.forEach { group ->
-                                            for (i in 0 until group.length) {
-                                                val fmt = group.getTrackFormat(i)
-                                                val label = fmt.label
-                                                    ?: fmt.language?.let { "Lang: $it" }
-                                                    ?: "Track ${i + 1}"
-                                                val selected = group.isSelected && group.length == 1
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            label,
-                                                            color = if (selected) SlAccent else Color.White,
-                                                            fontSize = 15.sp,
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        try {
-                                                            player.trackSelectionParameters = player.trackSelectionParameters
-                                                                .buildUpon()
-                                                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                                                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
-                                                                .build()
-                                                        } catch (_: Exception) {}
-                                                        showSubsMenu = false
-                                                        poke()
-                                                    },
-                                                )
-                                            }
+                                        subItems.forEachIndexed { pos, pair ->
+                                            val group = pair.first
+                                            val i = pair.second
+                                            val fmt = group.getTrackFormat(i)
+                                            val label = fmt.label
+                                                ?: fmt.language?.let { "Lang: $it" }
+                                                ?: "Track ${i + 1}"
+                                            val selected = group.isSelected && group.length == 1
+                                            PlayerMenuItem(
+                                                label = label,
+                                                selected = selected,
+                                                isLast = pos == subItems.lastIndex,
+                                                onClose = { showSubsMenu = false },
+                                                onClick = {
+                                                    try {
+                                                        player.trackSelectionParameters = player.trackSelectionParameters
+                                                            .buildUpon()
+                                                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                                                            .build()
+                                                    } catch (_: Exception) {}
+                                                    showSubsMenu = false
+                                                    poke()
+                                                },
+                                            )
                                         }
                                     }
                                 }
@@ -825,6 +860,54 @@ fun PlayerScreen(
         }
 
     }
+}
+
+/**
+ * 2026-11-13 (v2.20.0): player ke dropdown menus (ZOOM / AUDIO /
+ * SUBS) ka item — Ahmed Bhai ki do shikayaton ka hal:
+ * (1) remote ki selection NAZAR aye: jis item par focus ho us
+ *     par SAFED 2dp border + halka neela background.
+ * (2) menu DOWN key se band ho: aakhri item par hote hue DOWN
+ *     dabane se menu band (back button se band NAHI hota —
+ *     MainActivity BACK ko rokta hai jab tak menu khula hai).
+ */
+@Composable
+private fun PlayerMenuItem(
+    label: String,
+    selected: Boolean,
+    isLast: Boolean,
+    onClose: () -> Unit,
+    onClick: () -> Unit,
+) {
+    var itemFocused by remember { mutableStateOf(false) }
+    DropdownMenuItem(
+        text = {
+            Text(
+                label,
+                color = if (selected) SlAccent else Color.White,
+                fontSize = 15.sp,
+            )
+        },
+        onClick = onClick,
+        modifier = Modifier
+            .onFocusChanged { itemFocused = it.isFocused }
+            .background(if (itemFocused) Color(0xFF2A4A66) else Color.Transparent)
+            .border(
+                width = if (itemFocused) 2.dp else 0.dp,
+                color = if (itemFocused) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(6.dp),
+            )
+            .onPreviewKeyEvent { ev ->
+                if (ev.type == KeyEventType.KeyDown &&
+                    ev.key == Key.DirectionDown && isLast
+                ) {
+                    onClose()
+                    true
+                } else {
+                    false
+                }
+            },
+    )
 }
 
 /**
