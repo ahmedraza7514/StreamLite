@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.StreamLite" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/sl_background</item>
+        <!-- 2026-11-13 (v2.19.0, Point 6): splash ane se pehle ka
+             intezar khatam — window background ab sirf rang nahi,
+             logo wali splash_window hai. Android app khulte hi
+             pehle frame par ye dikha deta hai, is liye khaali
+             gehri screen par rukna nahi parta. -->
+        <item name="android:windowBackground">@drawable/splash_window</item>
         <item name="android:statusBarColor">@color/sl_background</item>
         <item name="android:navigationBarColor">@color/sl_background</item>
     </style>
