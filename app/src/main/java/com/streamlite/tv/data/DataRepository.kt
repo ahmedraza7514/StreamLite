@@ -28,6 +28,38 @@ object DataRepository {
     var vodTotalCount: Int = 0
     var seriesTotalCount: Int = 0
 
+    // 2026-11-13 (v2.20.2): counts ki YAAD — app band karke
+    // dobara kholne par bhi Home ke cards ke neeche aakhri
+    // gintee nazar aye (liveStreams band hone par memory se
+    // urh jata tha, aur Point 4 ki wajah se opening par
+    // auto-update bhi band hai). Ye sirf purani gintee dikhana
+    // hai — media ki update phir bhi sirf manual hukum par
+    // hogi. Sync ke aakhir me saveCounts counts ko phone par
+    // mehfooz kar deta hai; app khulte hi StreamLiteApp
+    // loadCounts se wapis parh leta hai.
+    var liveTotalCount: Int = 0
+
+    fun loadCounts(context: Context) {
+        try {
+            val p = context.getSharedPreferences("sl_counts", Context.MODE_PRIVATE)
+            liveTotalCount = p.getInt("live", 0)
+            vodTotalCount = p.getInt("vod", 0)
+            seriesTotalCount = p.getInt("series", 0)
+        } catch (_: Exception) { /* pehli dafa — kuch mehfooz nahi */ }
+    }
+
+    private fun saveCounts(context: Context) {
+        try {
+            liveTotalCount = liveStreams?.size ?: liveTotalCount
+            context.getSharedPreferences("sl_counts", Context.MODE_PRIVATE)
+                .edit()
+                .putInt("live", liveTotalCount)
+                .putInt("vod", vodTotalCount)
+                .putInt("series", seriesTotalCount)
+                .apply()
+        } catch (_: Exception) { /* gintee mehfooz na bhi ho to sync nahi rukti */ }
+    }
+
     // Per-category item counts, captured during sync (zero extra network —
     // the per-category sizes are already fetched for the totals above).
     // VodScreen / SeriesScreen sidebars read these; null = not synced yet.
@@ -179,6 +211,11 @@ object DataRepository {
         // GUIDE — EPG is now OPTIONAL (user taps the GUIDE box to load it).
         // Skipped during auto-sync so the app opens fast every time.
         onProgress("GUIDE")
+
+        // v2.20.2: is sync ki gintee phone par mehfooz kar do —
+        // app dobara khulne par Home ke cards par yahi nazar
+        // aye gi (uper loadCounts/saveCounts ki note).
+        if (appContext != null) saveCounts(appContext)
 
         // Batch 6, Point 17: preload ALL thumbnails into Coil's disk cache
         // NOW, during sync — fire-and-forget, it keeps running in the
