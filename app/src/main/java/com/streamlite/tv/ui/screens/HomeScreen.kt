@@ -756,17 +756,23 @@ private fun PopcornLogo(logoSize: Dp, modifier: Modifier = Modifier) {
         }
         drawPath(bucket, Color(0xFFF5F5F5))
         // Surkh khari dhariyaan — SIRF balti ki shakl ke andar.
-        clipPath(bucket) {
-            val sw = w * 0.105f
-            for (i in 0 until 3) {
-                val x = w * (0.335f + i * 0.165f)
-                drawRect(
-                    LiveRed,
-                    topLeft = Offset(x, h * 0.30f),
-                    size = Size(sw, h * 0.60f),
-                )
-            }
+        // Canvas par clip karke karna parta hai: DrawScope.clipPath
+        // is Compose version me mojood nahi — v2.16.0 ki pehli
+        // build THIK isi line par fail hui thi (compile error:
+        // unresolved reference 'clipPath'). Ye seedha canvas wala
+        // tareeqa har version me chalta hai.
+        drawContext.canvas.save()
+        drawContext.canvas.clipPath(bucket)
+        val sw = w * 0.105f
+        for (i in 0 until 3) {
+            val x = w * (0.335f + i * 0.165f)
+            drawRect(
+                LiveRed,
+                topLeft = Offset(x, h * 0.30f),
+                size = Size(sw, h * 0.60f),
+            )
         }
+        drawContext.canvas.restore()
         // Balti ke kinare (rim) ki halki lakeer.
         drawLine(
             Color(0xFFD8D8D8),
