@@ -1,6 +1,5 @@
 package com.streamlite.tv.ui.screens
 
-import android.view.TextureView
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,7 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
+import androidx.media3.ui.PlayerView
 import com.streamlite.tv.data.DataRepository
 import com.streamlite.tv.data.LiveStream
 import com.streamlite.tv.data.LoginSession
@@ -70,26 +69,8 @@ import kotlinx.coroutines.withContext
  * - Tap a quadrant -> pauses/plays THAT quadrant independently.
  * - Speaker icon on the side of each quadrant -> mute/unmute (the audible
  *   quadrant switches here too; only one quadrant has audio at a time).
- *
- * 2026-11-12 (v2.14.0, Ahmed Bhai's final order): AWAZ KA RULE WAHI
- * hai jo pehle tha — ek waqt me sirf ek screen ki awaz, jis ko unmute
- * karen sirf wahi (us ne khud ye rule confirm kiya). Is build me sirf
- * do tabdeeliyan hain:
- * - Video ab TextureView par hai, PlayerView ke SurfaceView par nahi:
- *   TV box par 4 SurfaceView ek sath chalane se ek na ek screen kaali
- *   reh jati thi (aur wo position bhi badalti rehti thi — bojh/load
- *   ka masla hai, kisi ek screen ka nahi). TextureView aam UI ki
- *   tarah composite hoti hai, is liye charoon display hoti hain.
- * - Players PlayerFactory.createForMultiView se bante hain (halke:
- *   480p cap + chhota buffer) taake 4 streams 2GB TV box aur 4 Mbps
- *   line par smooth chalen.
- *
- * 2026-11-13 (v2.14.1): awaz ki switching ka tareeka badla — pehle
- * sirf volume 0/1 hota tha; Ahmed Bhai ke test se sabit hua ke jo
- * screen band-awaz se shuru hoti thi, us ki awaz baad me khulti hi
- * nahi thi (sirf shuru wali screen awaz deti thi). Ab har quadrant
- * ka AUDIO TRACK on/off hota hai, taake awaz wala hissa har switch
- * par taza bane. Rule wahi hai: ek waqt me ek screen ki awaz.
+ * - Players are built by PlayerFactory (tuned buffers + 720p cap) so the
+ *   2GB TV box doesn't choke on 4 simultaneous streams.
  */
 @Composable
 fun MultiViewScreen(
@@ -285,12 +266,11 @@ private fun ChannelPicker(
 private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val context = LocalContext.current
     val client = remember { XtreamClient(session.server, session.username, session.password) }
-    // One LIGHT player per quadrant (PlayerFactory.createForMultiView:
-    // 480p cap + small buffers, so 4 streams stay smooth on the 2GB
-    // TV box and don't fight over his 4 Mbps line)
+    // One tuned player per quadrant (PlayerFactory: small buffers + 720p cap
+    // so 4 streams don't OOM the 2GB TV box)
     val players = remember {
         List(4) { idx ->
-            PlayerFactory.createForMultiView(context).apply {
+            PlayerFactory.create(context).apply {
                 val ch = channels.getOrNull(idx)
                 if (ch != null) {
                     val url = client.liveHlsUrl(ch.streamId)
@@ -298,21 +278,14 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                     prepare()
                     playWhenReady = true
                 }
-                // Awaz ka rule purana wala hi hai (Ahmed Bhai ne
-                // 2026-11-12 ko confirm kiya): ek waqt me SIRF EK
-                // quadrant audible — neeche audibleIdx usi ko sambhalta
-                // hai. Audio focus OFF hai: Android ka focus system
-                // quadrants ko duck/pause kar deta tha.
+                // 2026-11-05 (Batch 8 fix): back to ONE audible quadrant at a
+                // time (click a screen's speaker to hear THAT one). The 4-players-
+                // at-once change is reverted per user instruction.
+                // Audio focus is OFF for these players: Android's focus system
+                // was ducking/pausing quadrants, so only some of the 4 could
+                // ever be heard — the app's own volume control decides now.
                 setAudioAttributes(AudioAttributes.DEFAULT, false)
                 volume = if (idx == 0) 1f else 0f
-                // 2026-11-13 (v2.14.1): jo quadrant shuru me audible
-                // nahi, us ka AUDIO TRACK bhi band rakho — sirf volume
-                // 0 par nahi chhorna. Wajah neeche setAudible par.
-                if (idx != 0) {
-                    trackSelectionParameters = trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                        .build()
-                }
             }
         }
     }
@@ -327,41 +300,11 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
         pausedStates[idx].value = !p.playWhenReady
     }
 
-    // 2026-11-13 (v2.14.1): awaz ab sirf VOLUME se nahi, AUDIO TRACK
-    // on/off se bhi switch hoti hai. Wajah — Ahmed Bhai ka test: speaker
-    // dabane par nishan badal jata tha, pehli wali ki awaz band bhi ho
-    // jati thi, lekin nayi wali ki awaz ati hi nahi thi; sirf wohi
-    // screen awaz deti thi jo SHURU se khuli thi. Matlab jo player
-    // band-awaz (volume 0) se shuru hua, device par us ka awaz wala
-    // rasta usi band halat me jam jata hai — baad me volume 1 karne
-    // par bhi awaz nahi khulti. Track off/on karne se us quadrant ka
-    // awaz wala hissa (renderer + AudioTrack) har dafa TAZA banta
-    // hai — bilkul wese hi jese shuru wali screen ka pehle din se
-    // khula tha. Volume bhi sath set rakha hai (dohri hifazat).
-    fun setAudible(p: ExoPlayer, audible: Boolean) {
-        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !audible)
-            .build()
-        p.volume = if (audible) 1f else 0f
-        if (audible) {
-            // 2026-11-13 (v2.16.0): v2.14.1 ke baad LEFT column
-            // (upar-neeche bayein) ki awaz ane lagi, lekin RIGHT
-            // column (players 1 aur 3) phir bhi khamosh thay — un ka
-            // awaz wala hissa pehli tayyari me kahin atak jata hai.
-            // Is liye jo screen audible BANTI hai, us ka player usi
-            // waqt ROK kar dobara tayyar (stop + prepare) kiya jata
-            // hai: awaz ka poora rasta taza banta hai. Video us
-            // screen par 1-3 sec ruk kar live edge se phir chalega
-            // — ye is tareeqe ki qeemat hai.
-            p.stop()
-            p.prepare()
-            p.play()
-        }
-    }
-
     fun toggleMute(idx: Int) {
         audibleIdx = if (audibleIdx == idx) null else idx
-        players.forEachIndexed { i, p -> setAudible(p, i == audibleIdx) }
+        players.forEachIndexed { i, p ->
+            p.volume = if (i == audibleIdx) 1f else 0f
+        }
     }
 
     DisposableEffect(Unit) {
@@ -454,25 +397,18 @@ private fun QuadPlayer(
             .onFocusChanged { quadFocused = it.isFocused }
             .clickable { onTap() },
     ) {
-        // 2026-11-12 (v2.14.0): video TextureView par hai, PlayerView ke
-        // SurfaceView par nahi. TV box par 4 SurfaceView ek sath chalane
-        // par ek na ek screen kaali reh jati thi (hardware overlay ki
-        // had) — TextureView aam UI ki tarah composite hoti hai, is
-        // liye charoon screens display hoti hain. TextureView box ko
-        // poora bharti hai — waisa hi look jaisa purana RESIZE_MODE_FILL
-        // deta tha (koi black bars nahi).
         AndroidView(
             factory = { ctx ->
-                TextureView(ctx).apply {
+                PlayerView(ctx).apply {
+                    this.player = player
+                    useController = false
+                    // Fill the box completely (no black bars)
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
-                    player.setVideoTextureView(this)
                 }
-            },
-            onRelease = { textureView ->
-                player.clearVideoTextureView(textureView)
             },
             modifier = Modifier.fillMaxSize(),
         )
