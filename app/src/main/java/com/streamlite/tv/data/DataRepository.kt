@@ -103,10 +103,16 @@ object DataRepository {
         // NOW, during sync — fire-and-forget, it keeps running in the
         // background after sync finishes so categories open instantly.
         if (appContext != null) {
+            // 2026-11-13 (v2.16.0): Live logos PEHLE aur priority ke
+            // sath — ye sab se zyada khulte hain; VOD/Series posters
+            // cache ki jagah ke hisaab se baad me (ThumbnailPreloader
+            // unhen cache bharne par rok deta hai).
+            val liveLogos = liveStreams.orEmpty().map { it.logo }
             ThumbnailPreloader.preload(
                 appContext,
-                liveStreams.orEmpty().map { it.logo } + vodLogos + seriesCovers,
+                liveLogos + vodLogos + seriesCovers,
                 onThumbnailProgress,
+                priorityCount = liveLogos.size,
             )
         }
 
