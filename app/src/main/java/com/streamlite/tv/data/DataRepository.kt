@@ -1,9 +1,12 @@
 package com.streamlite.tv.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -42,18 +45,73 @@ object DataRepository {
     @Volatile var thumbPriority: Int = 0
         private set
 
-    /** Sirf thumbnails dobara load karo (baghair media sync ke). */
+    // 2026-11-13 (v2.19.0, Point 5): "Update Thumbnails" button
+    // ab KHUD-KAFI hai. Pehle jab list khaali hoti thi to button
+    // Sync screen par bhej deta tha — Ahmed Bhai ne teen bar
+    // check karke bataya ke click se koi thumbnail load nahi
+    // hota tha. Ab: list khaali ho (maslan taaza opening, sync
+    // na hua ho) to pehle khamoshi se catalog ki lists load
+    // karke URLs jama karta hai, phir preload chalata hai.
+    // Button wohi kare ga jo us ka naam hai.
+    private val thumbScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Sirf thumbnails load karo — baghair Sync screen ke. */
     fun startThumbnailUpdate(
+        session: LoginSession,
         context: Context,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ) {
-        if (thumbUrls.isEmpty()) return
-        ThumbnailPreloader.preload(
-            context.applicationContext,
-            thumbUrls,
-            onProgress,
-            priorityCount = thumbPriority,
-        )
+        val appCtx = context.applicationContext
+        if (ThumbnailPreloader.running) return
+        if (thumbUrls.isNotEmpty()) {
+            ThumbnailPreloader.preload(
+                appCtx,
+                thumbUrls,
+                onProgress,
+                priorityCount = thumbPriority,
+            )
+            return
+        }
+        thumbScope.launch {
+            try {
+                val client = XtreamClient(session.server, session.username, session.password)
+                val live = runCatching { client.liveStreamsAll() }
+                    .getOrDefault(emptyList())
+                if (liveStreams == null) liveStreams = live
+                val liveLogos = live.map { it.logo }
+                val vc = runCatching { client.vodCategories() }
+                    .getOrDefault(emptyList())
+                val vodLists = vc.map { cat ->
+                    async {
+                        runCatching { client.vodStreams(cat.id) }
+                            .getOrDefault(emptyList())
+                    }
+                }.awaitAll()
+                val vodLogos = vodLists.flatMap { list -> list.map { it.logo } }
+                val sc = runCatching { client.seriesCategories() }
+                    .getOrDefault(emptyList())
+                val seriesLists = sc.map { cat ->
+                    async {
+                        runCatching { client.series(cat.id) }
+                            .getOrDefault(emptyList())
+                    }
+                }.awaitAll()
+                val seriesCovers = seriesLists.flatMap { list -> list.map { it.cover } }
+                thumbUrls = liveLogos + vodLogos + seriesCovers
+                thumbPriority = liveLogos.size
+                if (thumbUrls.isNotEmpty()) {
+                    ThumbnailPreloader.preload(
+                        appCtx,
+                        thumbUrls,
+                        onProgress,
+                        priorityCount = thumbPriority,
+                    )
+                }
+            } catch (_: Exception) {
+                // Network/panel error — button dobara dabane par
+                // phir koshish ho gi.
+            }
+        }
     }
 
     suspend fun syncAll(
