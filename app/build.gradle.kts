@@ -22,8 +22,12 @@ android {
         // buffer) taake box par tez aur smooth chale. Awaz ka rule
         // waisa ka waisa hai (ek waqt me ek screen). Baqi app mein
         // koi changing nahi.
-        versionCode = 18
-        versionName = "2.14.0"
+        // 2026-11-13: v2.14.1 — sirf MultiView ki awaz ki switching
+        // theek ki: volume ke sath AUDIO TRACK bhi on/off hota hai
+        // (jo screen band-awaz se shuru hoti thi, us ki awaz khulti
+        // hi nahi thi). Baqi sab v2.14.0 jesa hi hai.
+        versionCode = 19
+        versionName = "2.14.1"
     }
 
     buildTypes {
