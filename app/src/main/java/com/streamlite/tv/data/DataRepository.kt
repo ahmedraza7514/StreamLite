@@ -33,6 +33,29 @@ object DataRepository {
 
     var isSynced = false
 
+    // 2026-11-13 (v2.18.0, Point 5): aakhri sync ki thumbnail
+    // (Live logos + VOD posters + Series covers) wali list — Home
+    // ke "Update Thumbnails" button ke liye, taake sirf images
+    // taaza karne ke liye poori media sync dobara na karni pare.
+    @Volatile var thumbUrls: List<String> = emptyList()
+        private set
+    @Volatile var thumbPriority: Int = 0
+        private set
+
+    /** Sirf thumbnails dobara load karo (baghair media sync ke). */
+    fun startThumbnailUpdate(
+        context: Context,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ) {
+        if (thumbUrls.isEmpty()) return
+        ThumbnailPreloader.preload(
+            context.applicationContext,
+            thumbUrls,
+            onProgress,
+            priorityCount = thumbPriority,
+        )
+    }
+
     suspend fun syncAll(
         client: XtreamClient,
         appContext: Context? = null,
@@ -108,11 +131,16 @@ object DataRepository {
             // cache ki jagah ke hisaab se baad me (ThumbnailPreloader
             // unhen cache bharne par rok deta hai).
             val liveLogos = liveStreams.orEmpty().map { it.logo }
+            // 2026-11-13 (v2.18.0, Point 5): thumbnail list YAAD
+            // rakho — Home ke "Update Thumbnails" button ko baghair
+            // dobara sync kiye sirf images taaza karni hain.
+            thumbUrls = liveLogos + vodLogos + seriesCovers
+            thumbPriority = liveLogos.size
             ThumbnailPreloader.preload(
                 appContext,
-                liveLogos + vodLogos + seriesCovers,
+                thumbUrls,
                 onThumbnailProgress,
-                priorityCount = liveLogos.size,
+                priorityCount = thumbPriority,
             )
         }
 
