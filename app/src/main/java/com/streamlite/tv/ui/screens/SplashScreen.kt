@@ -1,15 +1,9 @@
 package com.streamlite.tv.ui.screens
 
 import android.net.Uri
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,12 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
@@ -44,8 +34,6 @@ import kotlinx.coroutines.delay
 fun SplashScreen(onFinished: () -> Unit) {
     val context = LocalContext.current
     var videoFailed by remember { mutableStateOf(false) }
-    // v2.15.0: video ka pehla frame aya ya nahi — poster isi se hatta hai.
-    var firstFrame by remember { mutableStateOf(false) }
 
     val exo = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -54,9 +42,6 @@ fun SplashScreen(onFinished: () -> Unit) {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     if (state == Player.STATE_ENDED) onFinished()
-                }
-                override fun onRenderedFirstFrame() {
-                    firstFrame = true
                 }
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     videoFailed = true
@@ -89,7 +74,9 @@ fun SplashScreen(onFinished: () -> Unit) {
             .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
-        if (!videoFailed) {
+        if (videoFailed) {
+            Text("A.R. Xtream IPTV", fontSize = 32.sp, color = Color(0xFF00C2FF))
+        } else {
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
@@ -102,30 +89,6 @@ fun SplashScreen(onFinished: () -> Unit) {
                 },
                 modifier = Modifier.fillMaxSize(),
             )
-        }
-        // 2026-11-13 (v2.15.0): POSTER — video ka pehla frame ane tak
-        // app ka logo + naam screen par rehta hai, taake app khulte hi
-        // splash FORAN nazar aye. Pehle video tayyar hone tak sirf
-        // kaali/khaali screen rehti thi, is liye app sust lagti thi.
-        // Pehla frame ate hi poster khud hat jata hai; video fail ho
-        // to poster hi fallback hai (3s wala purana timer barqarar).
-        if (!firstFrame) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = "A.R. Xtream IPTV logo",
-                    modifier = Modifier
-                        .size(96.dp)
-                        .clip(RoundedCornerShape(20.dp)),
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "A.R. Xtream IPTV",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-            }
         }
     }
 }
