@@ -26,17 +26,21 @@ android {
         // theek ki: volume ke sath AUDIO TRACK bhi on/off hota hai
         // (jo screen band-awaz se shuru hoti thi, us ki awaz khulti
         // hi nahi thi). Baqi sab v2.14.0 jesa hi hai.
-        // 2026-11-13: v2.15.0 — (1) Homepage ka NAYA design Ahmed
-        // Bhai ke reference theme jesa: gehra kala/maroon rang,
-        // upar-dayein gol buttons, Quick Access panel, Dashboard
-        // patti (EPG nahi lagaya — un ka standing hukum hai).
-        // (2) Startup tez: splash ab pehle frame se chalta hai,
-        // session load us ke peeche hota hai; splash par video ke
-        // pehle frame tak logo+naam ka poster rehta hai.
-        // (3) MultiView ki awaz v2.14.1 wali hi hai (koi tabdeeli
-        // nahi is build me).
-        versionCode = 20
-        versionName = "2.15.0"
+        // 2026-11-13: v2.16.0 — Ahmed Bhai ke 13-11 wale notes par
+        // SAB points: (1) card logos reference walay (TV set + LIVE
+        // pill title, popcorn balti, kala clapper) aur chhoti
+        // unchai par cards/panel khud sikor jate hain — koi hissa
+        // kata nahi. (2) Neeche wale naam/count chhote. (3)
+        // Dashboard patti patli. (4) 4-Screen awaz: jo screen
+        // audible banti hai us ka player stop+prepare se taza
+        // chalta hai (RIGHT column khamosh rehta tha). (5) Splash
+        // se pehle wala poster HATA diya — direct video; splash
+        // video halki kar di (8MB -> ~1MB, 10s -> 5s). (6) Images:
+        // Coil disk cache 100MB -> 1GB aur sync par Live logos
+        // pehle/priority se preload — pehle posters ki bheer Live
+        // logos ko cache se nikal deti thi.
+        versionCode = 21
+        versionName = "2.16.0"
     }
 
     buildTypes {
