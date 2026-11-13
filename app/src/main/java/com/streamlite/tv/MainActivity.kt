@@ -105,9 +105,18 @@ private fun AppRoot() {
     }
     val sessionManager = remember { SessionManager(context.applicationContext) }
     val scope = rememberCoroutineScope()
-    val navStack = remember { mutableStateListOf<Screen>() }
+    // 2026-11-13 (v2.15.0): nav stack SPLASH se shuru hota hai —
+    // app khulte hi pehle frame par splash, koi khaali gehri
+    // screen nahi (startup tez karne ke liye).
+    val navStack = remember { mutableStateListOf<Screen>(Screen.Splash) }
     var session by remember { mutableStateOf<LoginSession?>(null) }
-    var booted by remember { mutableStateOf(false) }
+    var booted by remember { mutableStateOf(true) }
+    // 2026-11-13 (v2.15.0): saved session ka load splash ke PECHHE
+    // chalta hai — bootReady = load ho gaya; splashDone = splash
+    // video khatam. Agli screen tab khulti hai jab DONO sach hon,
+    // is liye splash ko session load ka intezar nahi karna parta.
+    var bootReady by remember { mutableStateOf(false) }
+    var splashDone by remember { mutableStateOf(false) }
     val m3uCache: MutableState<List<M3uChannel>?> = remember { mutableStateOf(null) }
 
     LaunchedEffect(Unit) {
@@ -124,8 +133,16 @@ private fun AppRoot() {
             bufferJob.await()
             session = sessionJob.await()
         }
-        navStack.add(Screen.Splash)
-        booted = true
+        bootReady = true
+    }
+
+    // Splash khatam + session load: jo pehle ho jaye, wo doosre ka
+    // intezar karta hai; dono hon to Sync (logged in) ya Login.
+    LaunchedEffect(splashDone, bootReady) {
+        if (splashDone && bootReady) {
+            navStack.clear()
+            navStack.add(if (session != null) Screen.Sync() else Screen.Login)
+        }
     }
 
     // 2026-11-06 (v2.12): ONE guarded back handler owns EVERY back press.
@@ -159,16 +176,11 @@ private fun AppRoot() {
     }
     BackHandler(enabled = booted) { popOrExit() }
 
-    if (!booted) {
-        // 2026-11-05 (Batch 7): no "StreamLite" text screen on open — plain dark
-        // background until the splash video starts.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(SlBackground),
-        )
-        return
-    }
+    // 2026-11-13 (v2.15.0): purana "booted" wala darwaza hata diya —
+    // pehle saved session load hone tak sirf gehri khaali screen
+    // rehti thi aur splash der se shuru hota tha, is liye app sust
+    // lagti thi. Ab splash pehle frame se chalta hai; session load
+    // us ke peeche hota hai (uper bootReady/splashDone ki jodi).
 
     fun goHome(s: LoginSession) {
         session = s
@@ -263,11 +275,7 @@ private fun AppRoot() {
 
     when (val s = navStack.last()) {
         is Screen.Splash -> SplashScreen(
-            onFinished = {
-                // Splash done: go to Sync (update media contents) if logged in, else Login.
-                navStack.clear()
-                navStack.add(if (session != null) Screen.Sync() else Screen.Login)
-            },
+            onFinished = { splashDone = true },
         )
         is Screen.Login -> LoginScreen(sessionManager, ::goHome)
         is Screen.AddAccount -> LoginScreen(
