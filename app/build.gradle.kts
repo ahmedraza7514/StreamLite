@@ -38,8 +38,17 @@ android {
         // (4 Mbps par slow logo sites haar jati theen). Baqi
         // sab v2.16.0 jesa hi hai (naya home design, tez
         // startup, 1GB image cache).
-        versionCode = 22
-        versionName = "2.17.0"
+        // 2026-11-13: v2.18.0 — user ke 6 points (v2.17.0 test):
+        // (1-2) awaz: PlayerFactory ke dono players me AAC ko
+        // tarjeeh (AC3 pehle chun liya jata tha, bohat se phones
+        // par decode nahi hota). (3) fail images ginna
+        // (ThumbnailPreloader failed counter). (4) har opening
+        // par auto-Sync khatam — saved session par seedha Home;
+        // sync sirf naye login ya manual Update media par.
+        // (5) Home QUICK ACCESS me alag "Update Thumbnails"
+        // button. (6) splash 1.2s me aage barhta hai.
+        versionCode = 23
+        versionName = "2.18.0"
     }
 
     buildTypes {
