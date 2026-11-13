@@ -107,8 +107,12 @@ import kotlinx.coroutines.withContext
 // CHHOTE; Dashboard patti PATLI; chhoti unchai wali screen
 // (landscape mobile) par cards aur Quick Access panel khud
 // sikor jate hain — koi hissa kat kar gayab nahi hota.
-private val HomeBackground = Color(0xFF0B0B0F)
-private val HomeGlow = Color(0xFF2E1418)
+// 2026-11-13 (v2.20.0): homepage ka background Ahmed Bhai ke
+// bheje hue rang par — Rosewood #6A040F. Glow usi rang ka
+// thoda roshan shade hai taake radial gehrai barqarar rahe,
+// lekin page ka asal rang 6A040F hi nazar aye.
+private val HomeBackground = Color(0xFF6A040F)
+private val HomeGlow = Color(0xFF7D0A1B)
 private val HomeCard = Color(0xFF17181F)
 private val HomePanel = Color(0xFF101116)
 private val HomeSurface = Color(0xFF1B1C24)
@@ -445,16 +449,14 @@ private fun HomeQuickAccessPanel(
             Column(verticalArrangement = Arrangement.spacedBy(if (tight) 6.dp else 10.dp)) {
                 HomeSideRow(
                     icon = Icons.Filled.GridView,
-                    label = "Multiscreen",
+                    label = "Play 4 Screen",
                     onClick = { onNavigate(Screen.MultiView) },
                     tight = tight,
                 )
-                HomeSideRow(
-                    icon = Icons.Filled.Refresh,
-                    label = "Update media",
-                    onClick = { onNavigate(Screen.Sync()) },
-                    tight = tight,
-                )
+                // 2026-11-13 (v2.20.0): panel wali "Update media"
+                // row HATA di gayi — Ahmed Bhai ka hukum: upar
+                // Settings ke sath Update media ka button pehle
+                // se mojood hai, neeche wale ki zarurat nahi.
                 // 2026-11-13 (v2.18.0, Point 5): Ahmed Bhai ka
                 // hukum — sirf title images/logos taaza karne ka
                 // ALAG button. v2.19.0: button ab khud-kafi hai —
