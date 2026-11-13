@@ -87,8 +87,14 @@ android {
         // (2) Player: screen par tap/click se controls + menu
         // band (mobile ke liye — no-auto-close wala rule TV ka
         // tha). (3) Home background "Black bean" #350616.
-        versionCode = 27
-        versionName = "2.20.2"
+        // 2026-11-13: v2.20.3 — (1) Home background mazeed gehra
+        // surkh (#2A0208, glow #40040F). (2) Homepage ke tamam
+        // cards/elements (3 baray cards, QUICK ACCESS panel,
+        // dashboard patti, upar ke gol buttons) par neeche/sides
+        // se SAFED shadow — cards ka apna kala elevation 0 karke
+        // whiteCardShadow helper se.
+        versionCode = 28
+        versionName = "2.20.3"
     }
 
     buildTypes {
