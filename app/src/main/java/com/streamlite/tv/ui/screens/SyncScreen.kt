@@ -60,15 +60,14 @@ fun SyncScreen(
     var liveCount by remember { mutableStateOf(0) }
     var vodCount by remember { mutableStateOf(0) }
     var seriesCount by remember { mutableStateOf(0) }
-    // Batch 6, Point 17: thumbnail preload progress (done / total).
-    var thumbDone by remember { mutableStateOf(0) }
-    var thumbTotal by remember { mutableStateOf(0) }
     val appContext = LocalContext.current.applicationContext
 
-    // 2026-11-13 (v2.20.0): THUMBNAILS bhi ek step hai — media ke
-    // sath hi load hoti hain aur in ki gintee is box me nazar
-    // ati hai (Ahmed Bhai ka hukum: loading show honi chahiye).
-    val steps = listOf("LIVE TV", "VOD", "SERIES", "THUMBNAILS")
+    // 2026-11-13 (v2.20.1 — TASHEEH): THUMBNAILS ka step is page
+    // se HATA diya gaya — v2.20.0 me page thumbnails (48,850) ke
+    // mukammal hone par ruka rehta tha. Ab is page par sirf media
+    // sync hai; thumbnails background me load hoti hain aur un ki
+    // progress Homepage par nazar ati hai (Ahmed Bhai ka hukum).
+    val steps = listOf("LIVE TV", "VOD", "SERIES")
 
     fun startSync() {
         error = null
@@ -79,8 +78,6 @@ fun SyncScreen(
         liveCount = 0
         vodCount = 0
         seriesCount = 0
-        thumbDone = 0
-        thumbTotal = 0
         scope.launch {
             try {
                 if (session.type == LoginType.XTREAM) {
@@ -88,9 +85,10 @@ fun SyncScreen(
                     DataRepository.syncAll(
                         client,
                         appContext = appContext,
-                        onThumbnailProgress = { d, t ->
-                            // Callback arrives from an IO thread — hop to Main to touch state.
-                            scope.launch { thumbDone = d; thumbTotal = t }
+                        onThumbnailProgress = { _, _ ->
+                            // v2.20.1: thumbnail progress is page par
+                            // nahi dikhti — background loading ki
+                            // gintee Homepage par nazar ati hai.
                         },
                         onProgress = { step ->
                             if (step == "DONE") {
@@ -186,7 +184,6 @@ fun SyncScreen(
                                     "LIVE TV" -> "✓ Done ($liveCount)"
                                     "VOD" -> "✓ Done ($vodCount)"
                                     "SERIES" -> "✓ Done ($seriesCount)"
-                                    "THUMBNAILS" -> "✓ Done ($thumbTotal)"
                                     else -> "✓ Done"
                                 }
                                 Text(countText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
@@ -194,14 +191,7 @@ fun SyncScreen(
                             isActive -> {
                                 // 2026-11-05 (Batch 8): "Please wait..." lives INSIDE
                                 // the box that is loading — not below the row.
-                                if (step == "THUMBNAILS" && thumbTotal > 0) {
-                                    // Thumbnails ki asal gintee: done / total
-                                    Text(
-                                        "$thumbDone / $thumbTotal",
-                                        fontSize = 18.sp,
-                                        color = SlAccent,
-                                    )
-                                } else if (step == "GUIDE" && epgTotal > 0) {
+                                if (step == "GUIDE" && epgTotal > 0) {
                                     // Real EPG progress: "1234 / 5000"
                                     Text(
                                         "$epgDone / $epgTotal",
@@ -226,17 +216,9 @@ fun SyncScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Batch 6, Point 17: thumbnail preload runs during sync and keeps
-        // going in the background after — this line shows live progress.
-        if (thumbTotal > 0) {
-            Text(
-                if (thumbDone >= thumbTotal) "Thumbnails ready ✓ ($thumbTotal)"
-                else "Loading thumbnails… $thumbDone / $thumbTotal",
-                fontSize = 14.sp,
-                color = if (thumbDone >= thumbTotal) Color(0xFF4CAF50) else SlTextDim,
-            )
-            Spacer(Modifier.height(16.dp))
-        }
+        // v2.20.1: thumbnail progress wali line is page se hata
+        // di gayi hai — thumbnails background me load hoti hain,
+        // un ki gintee Homepage ke panel me nazar ati hai.
 
         if (error != null) {
             Text(error!!, color = Color(0xFFFF6B6B), fontSize = 15.sp)
