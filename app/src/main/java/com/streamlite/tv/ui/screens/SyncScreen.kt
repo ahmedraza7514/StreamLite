@@ -65,7 +65,10 @@ fun SyncScreen(
     var thumbTotal by remember { mutableStateOf(0) }
     val appContext = LocalContext.current.applicationContext
 
-    val steps = listOf("LIVE TV", "VOD", "SERIES")
+    // 2026-11-13 (v2.20.0): THUMBNAILS bhi ek step hai — media ke
+    // sath hi load hoti hain aur in ki gintee is box me nazar
+    // ati hai (Ahmed Bhai ka hukum: loading show honi chahiye).
+    val steps = listOf("LIVE TV", "VOD", "SERIES", "THUMBNAILS")
 
     fun startSync() {
         error = null
@@ -183,6 +186,7 @@ fun SyncScreen(
                                     "LIVE TV" -> "✓ Done ($liveCount)"
                                     "VOD" -> "✓ Done ($vodCount)"
                                     "SERIES" -> "✓ Done ($seriesCount)"
+                                    "THUMBNAILS" -> "✓ Done ($thumbTotal)"
                                     else -> "✓ Done"
                                 }
                                 Text(countText, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
@@ -190,7 +194,14 @@ fun SyncScreen(
                             isActive -> {
                                 // 2026-11-05 (Batch 8): "Please wait..." lives INSIDE
                                 // the box that is loading — not below the row.
-                                if (step == "GUIDE" && epgTotal > 0) {
+                                if (step == "THUMBNAILS" && thumbTotal > 0) {
+                                    // Thumbnails ki asal gintee: done / total
+                                    Text(
+                                        "$thumbDone / $thumbTotal",
+                                        fontSize = 18.sp,
+                                        color = SlAccent,
+                                    )
+                                } else if (step == "GUIDE" && epgTotal > 0) {
                                     // Real EPG progress: "1234 / 5000"
                                     Text(
                                         "$epgDone / $epgTotal",
