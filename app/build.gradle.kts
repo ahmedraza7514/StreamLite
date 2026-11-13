@@ -73,8 +73,14 @@ android {
         // pehla frame foran aye. (H) Homepage: QUICK ACCESS se
         // Update media row khatam, "Multiscreen" ka naam
         // "Play 4 Screen", background Rosewood #6A040F.
-        versionCode = 25
-        versionName = "2.20.0"
+        // 2026-11-13: v2.20.1 — TASHEEH (Ahmed Bhai ka test):
+        // Update Media Contents ka page 48,850 thumbnails ke
+        // intezar me ruka rehta tha. Ab sync page sirf media par
+        // hai (THUMBNAILS step + intezar khatam); thumbnails
+        // BACKGROUND me load hoti rehti hain, progress Homepage
+        // ke panel me nazar ati hai. Baqi v2.20.0 waisa hi hai.
+        versionCode = 26
+        versionName = "2.20.1"
     }
 
     buildTypes {
