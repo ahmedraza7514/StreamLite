@@ -67,6 +67,15 @@ fun SplashScreen(onFinished: () -> Unit) {
         delay(15000)
         onFinished()
     }
+    // 2026-11-13 (v2.18.0, Point 6): splash FAST — Ahmed Bhai ka
+    // hukum "wait na karwaye". Pehle pura video (5 second) khatam
+    // hone ka intezar hota tha; ab 1.2 second me aage barh jata
+    // hai (video utni der chalti rehti hai, phir screen badal
+    // jati hai). Upar wali 15s wali hadd sirf safety ke liye hai.
+    LaunchedEffect(Unit) {
+        delay(1200)
+        onFinished()
+    }
 
     Box(
         modifier = Modifier
