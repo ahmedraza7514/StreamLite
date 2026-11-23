@@ -539,9 +539,15 @@ private fun ChannelGridCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 2026-11-05 (Batch 8, Point 4): SAME poster size as VOD &
-                    // Series (2:3) — Live TV icons were too small.
-                    .aspectRatio(2f / 3f)
+                    // 2026-11-23 (v2.21.0): card COMPACT — Live
+                    // logos aam tor par CHORAY (landscape) hote
+                    // hain; 2:3 wala lamba khana khali unchai
+                    // khata tha aur card bohat lamba lagta tha.
+                    // Ab CHOKOR (1:1) khana hai — card ki unchai
+                    // taqreeban ek-tihai kam. Logo ContentScale
+                    // .Fit hi hai, is liye poora logo hamesha
+                    // nazar ata hai, crop nahi hota.
+                    .aspectRatio(1f)
                     .background(Color(0xFF0F1E2E), RoundedCornerShape(8.dp))
                     .padding(8.dp),
                 contentAlignment = Alignment.Center,
