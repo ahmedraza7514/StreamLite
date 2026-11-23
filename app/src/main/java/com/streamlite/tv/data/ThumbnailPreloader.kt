@@ -23,9 +23,16 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Runs on an app-wide scope — it keeps going in the background even after
  * the sync screen closes. Downloads go to DISK cache only (memory cache
- * disabled here) so the 2GB TV box never feels it. 8 downloads at a time
- * so a 4 Mbps line isn't choked. A dead/slow icon URL is skipped, never
- * fails the batch.
+ * disabled here) so the 2GB TV box never feels it. A dead/slow icon URL
+ * is skipped, never fails the batch.
+ *
+ * 2026-11-23 (v2.21.0, TV-box performance): ek waqt me 8 ki bajaye
+ * 4 downloads — sync ke doran user agar app istemal kare to UI ko
+ * saans milti hai. Aur har request par size ki had (256px): pehle
+ * poori-resolution poster decode hoti thi sirf cache garam karne
+ * ke liye — kamzor box par wahi hang ki bari wajah thi. Disk
+ * cache me asal file wese hi mehfooz hoti hai; UI apni size par
+ * khud decode kar leti hai.
  */
 object ThumbnailPreloader {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -66,7 +73,7 @@ object ThumbnailPreloader {
             val loader = appCtx.imageLoader
             val counter = AtomicInteger(0)
             val failCounter = AtomicInteger(0)
-            val sem = Semaphore(8)
+            val sem = Semaphore(4)
             try {
                 unique.mapIndexed { idx, url ->
                     async {
@@ -85,6 +92,11 @@ object ThumbnailPreloader {
                                 if (idx < priorityCount || !cacheFull) {
                                     val req = ImageRequest.Builder(appCtx)
                                         .data(url)
+                                        // v2.21.0: decode ki had —
+                                        // poori poster decode karke
+                                        // phenkna TV box ko hang
+                                        // karta tha.
+                                        .size(256, 256)
                                         .diskCachePolicy(CachePolicy.ENABLED)
                                         .memoryCachePolicy(CachePolicy.DISABLED)
                                         .build()
