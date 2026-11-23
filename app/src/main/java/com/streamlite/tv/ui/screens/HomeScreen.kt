@@ -124,8 +124,14 @@ import kotlinx.coroutines.withContext
 // 2026-11-13 (v2.20.4): rang ka naya tajurba — Ahmed Bhai ne
 // kaha sirf homepage ka background #006F7C (gehra teal) rakho,
 // "dekhty hain kea hota hy". Glow usi rang ka roshan shade.
-private val HomeBackground = Color(0xFF006F7C)
-private val HomeGlow = Color(0xFF0B8291)
+// 2026-11-23 (v2.21.0): NAYA reference design (Bukhari sb ki
+// bheji hui tasveer) — gehra NAVY BLUE background, steel-blue
+// translucent cards, upar-dayein DATE + TIME bhi (reference
+// me mojood tha). Maujooda saare buttons/features bilkul
+// barqarar hain — sirf rang aur upar wali patti me ghari ka
+// izafa hai. Teal wala tajurba (v2.20.4) is se khatam.
+private val HomeBackground = Color(0xFF04121F)
+private val HomeGlow = Color(0xFF0E4D6E)
 
 // 2026-11-13 (v2.20.3): homepage ke cards/elements ke liye
 // SAFED shadow — neeche aur sides par halki safed chamak
@@ -139,10 +145,10 @@ private fun Modifier.whiteCardShadow(shape: Shape): Modifier = this.shadow(
     ambientColor = Color.White.copy(alpha = 0.45f),
     spotColor = Color.White.copy(alpha = 0.65f),
 )
-private val HomeCard = Color(0xFF17181F)
-private val HomePanel = Color(0xFF101116)
-private val HomeSurface = Color(0xFF1B1C24)
-private val HomeChip = Color(0xFF26272F)
+private val HomeCard = Color(0xFF17364F)
+private val HomePanel = Color(0xFF0B2237)
+private val HomeSurface = Color(0xFF1D3D59)
+private val HomeChip = Color(0xFF274A66)
 private val HomeTextDim = Color(0xFF9AA0A6)
 private val LiveRed = Color(0xFFE53935)
 private val MoviesBlue = Color(0xFF2196F3)
@@ -386,6 +392,11 @@ private fun HomeHeader(compact: Boolean, onNavigate: (Screen) -> Unit) {
             fontSize = if (compact) 17.sp else 23.sp,
         )
         Spacer(Modifier.weight(1f))
+        // 2026-11-23 (v2.21.0): reference design me upar-dayein
+        // DATE + TIME nazar ata hai — wahi izafa kar diya.
+        // Buttons (Account / Settings / Update media / Exit)
+        // bilkul barqarar hain, un se pehle ghari ki patti hai.
+        HomeClockText(compact)
         Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
             HomeIconButton(Icons.Filled.Person, "Account", compact) { onNavigate(Screen.Account) }
             HomeIconButton(Icons.Filled.Settings, "Settings", compact) { onNavigate(Screen.Settings) }
@@ -393,6 +404,26 @@ private fun HomeHeader(compact: Boolean, onNavigate: (Screen) -> Unit) {
             HomeIconButton(Icons.Filled.ExitToApp, "Exit", compact) { activity?.finish() }
         }
     }
+}
+
+/** Upar-dayein DATE + TIME (v2.21.0, reference design) — har
+ * 20 second me khud taaza hoti hai, koi focus nahi leti. */
+@Composable
+private fun HomeClockText(compact: Boolean) {
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = Date()
+            delay(20_000)
+        }
+    }
+    Text(
+        SimpleDateFormat("dd-MM-yyyy  hh:mma", Locale.ENGLISH).format(now),
+        fontSize = if (compact) 12.sp else 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        modifier = Modifier.padding(end = if (compact) 10.dp else 18.dp),
+    )
 }
 
 /** Gol (circle) button — focus par halka sa pop, koi border nahi. */
