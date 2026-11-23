@@ -6,6 +6,7 @@ import coil.ImageLoaderFactory
 import com.streamlite.tv.data.DataRepository
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -35,6 +36,18 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
             // a bad URL fail FAST so the fallback tile shows instead of blank.
             .okHttpClient {
                 OkHttpClient.Builder()
+                    // 2026-11-23 (v2.21.0, TV-box performance):
+                    // image requests ki tadaad mehdood kar di —
+                    // pehle sainkadon posters ek sath download
+                    // hone ki koshish karte thay, kamzor TV box
+                    // ka CPU/network phans jata tha aur app hang
+                    // hoti thi. Ab ek waqt me zyada se zyada 32
+                    // (ek host se 8) — baqi line me intezar
+                    // karenge, UI bilkul nahi rukegi.
+                    .dispatcher(Dispatcher().apply {
+                        maxRequests = 32
+                        maxRequestsPerHost = 8
+                    })
                     // 2026-11-13 (v2.17.0): timeouts barha diye —
                     // pehle connect 5s / read 8s tha (Batch 7 ka
                     // TV-box faisla). Ahmed Bhai ki 4 Mbps line par
@@ -76,6 +89,12 @@ class StreamLiteApp : Application(), ImageLoaderFactory {
                     }
                     .build()
             }
+            // 2026-11-23 (v2.21.0): panel ke cache headers par
+            // dobara-jaanch (revalidation) band — har image ke
+            // liye alag network round-trip khatam, cache se
+            // foran milti hai. TV box par ghair-zaroori
+            // requests ka bojh kam.
+            .respectCacheHeaders(false)
             .diskCache {
                 // 2026-11-13 (v2.16.0): 100MB BAHUT chhota tha — kul
                 // ~93,000 images (15.8k Live logos + 69.8k VOD posters
