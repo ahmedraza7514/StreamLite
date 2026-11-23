@@ -100,8 +100,8 @@ android {
         // (3) QUICK ACCESS panel chaora (weight 0.28 -> 0.34),
         // jaga tabdeel nahi. (4) Panel se Catch Up row khatam
         // (Ahmed Bhai ki ijazat se).
-        versionCode = 30
-        versionName = "2.21.0"
+        versionCode = 31
+        versionName = "2.22.0"
     }
 
     buildTypes {
