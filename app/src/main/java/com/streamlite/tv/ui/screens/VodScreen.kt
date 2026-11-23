@@ -241,7 +241,12 @@ fun VodScreen(
                 ) { Text("No movies here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyVerticalGrid(
                     state = ScrollStateStore.vodGrid,
-                    columns = GridCells.Fixed(5),
+                    // 2026-11-23 (v2.21.0): cards COMPACT — 5 ki
+                    // bajaye 6 columns, taake har card ki unchai
+                    // kam ho aur zyada movies ek nazar me ayen.
+                    // Poster ka ratio 2:3 hi hai (movies ka asal
+                    // ratio yahi hota hai — stretch/crop nahi).
+                    columns = GridCells.Fixed(6),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
@@ -307,7 +312,10 @@ fun VodScreen(
                                 Text(
                                     m.name,
                                     fontSize = 14.sp,
-                                    maxLines = 2,
+                                    // v2.21.0: compact card — naam
+                                    // ek hi line me (lamba ho to
+                                    // aakhir se kat kar ... ayega).
+                                    maxLines = 1,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 4.dp),
