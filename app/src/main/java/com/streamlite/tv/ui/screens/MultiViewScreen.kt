@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -149,9 +150,30 @@ private fun ChannelPicker(
     // 2026-11-05 (Batch 8, Point 4): separate OVERALL category search below
     // the channel search — filters channels by their category name.
     var catQuery by remember { mutableStateOf("") }
-    val categories = remember { DataRepository.liveCategories ?: emptyList() }
-    val filtered = remember(query, catQuery, channels, categories) {
+    // 2026-11-23 (v2.22.0): categories ab state me hain — agar sync
+    // se na ayi hon to neeche wala fallback khud le ayega.
+    var categories by remember { mutableStateOf(DataRepository.liveCategories ?: emptyList()) }
+    LaunchedEffect(Unit) {
+        if (categories.isEmpty() && session.type == LoginType.XTREAM) {
+            try {
+                val client = XtreamClient(session.server, session.username, session.password)
+                categories = withContext(Dispatchers.IO) { client.liveCategories() }
+            } catch (_: Exception) {
+                // Dropdown me sirf "All Channels" rahega — koi crash nahi.
+            }
+        }
+    }
+    // 2026-11-23 (v2.22.0, Bukhari sb ki requirement): CATEGORY
+    // DROPDOWN — "All Channels" ya koi ek category chuno, list
+    // sirf usi ke channels dikhaye gi. Categories playlist/source
+    // se khud ati hain (hardcode nahi). Manual search barqarar.
+    var selectedCatId by remember { mutableStateOf<String?>(null) }
+    var catMenuOpen by remember { mutableStateOf(false) }
+    val filtered = remember(query, catQuery, channels, categories, selectedCatId) {
         var result = channels
+        if (selectedCatId != null) {
+            result = result.filter { it.categoryId == selectedCatId }
+        }
         if (query.isNotBlank()) {
             result = result.filter { it.name.contains(query, ignoreCase = true) }
         }
@@ -193,6 +215,66 @@ private fun ChannelPicker(
                 inner()
             },
         )
+        Spacer(Modifier.height(12.dp))
+
+        // 2026-11-23 (v2.22.0): CATEGORY DROPDOWN button — dabane
+        // par categories ki list khulti hai; ek chuno to channel
+        // list sirf usi category ki reh jati hai.
+        var catBtnFocused by remember { mutableStateOf(false) }
+        val selectedCatName = categories.firstOrNull { it.id == selectedCatId }?.name
+        Card(
+            onClick = { catMenuOpen = !catMenuOpen },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { catBtnFocused = it.isFocused }
+                .border(
+                    width = if (catBtnFocused) 3.dp else 0.dp,
+                    color = if (catBtnFocused) Color.White else Color.Transparent,
+                    shape = RoundedCornerShape(12.dp),
+                ),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF0F1E2E),
+                contentColor = SlText,
+            ),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Category:", fontSize = 15.sp, color = SlTextDim)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    selectedCatName ?: "All Channels",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(if (catMenuOpen) "▴" else "▾", fontSize = 15.sp, color = SlText)
+            }
+        }
+        if (catMenuOpen) {
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().height(240.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                item {
+                    CategoryMenuRow(
+                        label = "All Channels",
+                        isSel = selectedCatId == null,
+                        onClick = { selectedCatId = null; catMenuOpen = false },
+                    )
+                }
+                items(categories, key = { it.id }) { cat ->
+                    CategoryMenuRow(
+                        label = cat.name,
+                        isSel = selectedCatId == cat.id,
+                        onClick = { selectedCatId = cat.id; catMenuOpen = false },
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(12.dp))
 
         // Overall category search (separate field, below the channel search)
@@ -285,6 +367,33 @@ private fun ChannelPicker(
     }
 }
 
+/** v2.22.0: category dropdown ki ek row — select shuda par ✓ aur accent rang. */
+@Composable
+private fun CategoryMenuRow(label: String, isSel: Boolean, onClick: () -> Unit) {
+    var rowFocused by remember { mutableStateOf(false) }
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .onFocusChanged { rowFocused = it.isFocused }
+            .border(
+                width = if (rowFocused) 3.dp else 0.dp,
+                color = if (rowFocused) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(10.dp),
+            ),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSel) SlAccent else Color(0xFF0F1E2E),
+            contentColor = if (isSel) Color.Black else SlText,
+        ),
+    ) {
+        Text(
+            (if (isSel) "✓ " else "") + label,
+            fontSize = 15.sp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        )
+    }
+}
+
 @Composable
 private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
     val context = LocalContext.current
@@ -338,13 +447,111 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
         }
     }
 
+    // 2026-11-23 (v2.22.0): FULLSCREEN — kisi ek screen ko bari
+    // karna (double-OK / double-click). Player WAHI rehta hai,
+    // sirf us ka khana bara ho jata hai — video/awaz restart
+    // nahi hoti, koi dobara prepare nahi. Back dabane par
+    // bilkul waisa hi 4-screen layout wapis (channels, kis ki
+    // awaz hai, pause ki halat — sab barqarar, kyunke players
+    // ko haath hi nahi lagta).
+    var fullscreenIdx by remember { mutableStateOf<Int?>(null) }
+    // Remote ki selection is waqt kis box me hai (aur play/pause
+    // par hai ya speaker par) — double-OK pehchanne ke liye.
+    var focusedQuad by remember { mutableStateOf(0) }
+    var focusedIsSpeaker by remember { mutableStateOf(false) }
+    var lastCenterQuad by remember { mutableStateOf(-1) }
+    var lastCenterAt by remember { mutableStateOf(0L) }
+    var swallowCenterUp by remember { mutableStateOf(false) }
+    var lastFullscreen by remember { mutableStateOf(-1) }
+    LaunchedEffect(fullscreenIdx) {
+        val f = fullscreenIdx
+        try {
+            if (f != null) {
+                lastFullscreen = f
+                playReqs[f].requestFocus()
+            } else if (lastFullscreen >= 0) {
+                // Fullscreen se wapis — selection usi box ke
+                // play/pause par wapis jaye jahan se bari hui thi.
+                playReqs[lastFullscreen].requestFocus()
+            }
+        } catch (_: Exception) { /* no-op */ }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             players.forEach { it.release() }
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            // v2.22.0: poori 4-screen ka markazi key handler —
+            // (a) fullscreen me Back = wapis 4-screen (global
+            // back handler tak baat jane hi nahi dete);
+            // (b) grid me DOUBLE-OK (400ms ke andar dusra OK)
+            // = focused wali screen fullscreen. Ek akela OK
+            // bilkul pehle jaisa hai (play/pause ya speaker) —
+            // galti se fullscreen nahi khulta.
+            .onPreviewKeyEvent { ev ->
+                if (fullscreenIdx != null) {
+                    if (ev.key == Key.Back && ev.type == KeyEventType.KeyDown) {
+                        fullscreenIdx = null
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    val isCenter = ev.key == Key.DirectionCenter ||
+                        ev.key == Key.Enter || ev.key == Key.NumPadEnter
+                    if (!isCenter) {
+                        false
+                    } else if (ev.type == KeyEventType.KeyDown) {
+                        val now = android.os.SystemClock.uptimeMillis()
+                        if (focusedQuad == lastCenterQuad && now - lastCenterAt < 400) {
+                            // DOUBLE-OK pakra gaya: pehle OK ka
+                            // asar (pause ya mute jo bhi hua tha)
+                            // wapis lo — screen bilkul apni
+                            // pehli halat me bari hogi.
+                            if (focusedIsSpeaker) toggleMute(focusedQuad) else togglePause(focusedQuad)
+                            fullscreenIdx = focusedQuad
+                            swallowCenterUp = true
+                            lastCenterAt = 0L
+                            true
+                        } else {
+                            lastCenterQuad = focusedQuad
+                            lastCenterAt = now
+                            false
+                        }
+                    } else if (ev.type == KeyEventType.KeyUp && swallowCenterUp) {
+                        swallowCenterUp = false
+                        true
+                    } else {
+                        false
+                    }
+                }
+            },
+    ) {
+        if (fullscreenIdx != null) {
+            val f = fullscreenIdx!!
+            QuadPlayer(
+                player = players[f],
+                title = channels.getOrNull(f)?.name ?: "",
+                isAudible = audibleIdx == f,
+                isPaused = pausedStates[f].value,
+                onTap = { togglePause(f) },
+                onToggleMute = { toggleMute(f) },
+                idx = f,
+                playReqs = playReqs,
+                speakerReqs = speakerReqs,
+                singleMode = true,
+                onFocusControl = { isSpk -> focusedQuad = f; focusedIsSpeaker = isSpk },
+                onDoubleTap = { },
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+    Column(modifier = Modifier.fillMaxSize()) {
         // Top row: 2 quadrants
         Row(modifier = Modifier.weight(1f)) {
             QuadPlayer(
@@ -357,6 +564,8 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 idx = 0,
                 playReqs = playReqs,
                 speakerReqs = speakerReqs,
+                onFocusControl = { isSpk -> focusedQuad = 0; focusedIsSpeaker = isSpk },
+                onDoubleTap = { fullscreenIdx = 0 },
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
@@ -369,6 +578,8 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 idx = 1,
                 playReqs = playReqs,
                 speakerReqs = speakerReqs,
+                onFocusControl = { isSpk -> focusedQuad = 1; focusedIsSpeaker = isSpk },
+                onDoubleTap = { fullscreenIdx = 1 },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -384,6 +595,8 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 idx = 2,
                 playReqs = playReqs,
                 speakerReqs = speakerReqs,
+                onFocusControl = { isSpk -> focusedQuad = 2; focusedIsSpeaker = isSpk },
+                onDoubleTap = { fullscreenIdx = 2 },
                 modifier = Modifier.weight(1f),
             )
             QuadPlayer(
@@ -396,12 +609,16 @@ private fun QuadGrid(channels: List<LiveStream>, session: LoginSession) {
                 idx = 3,
                 playReqs = playReqs,
                 speakerReqs = speakerReqs,
+                onFocusControl = { isSpk -> focusedQuad = 3; focusedIsSpeaker = isSpk },
+                onDoubleTap = { fullscreenIdx = 3 },
                 modifier = Modifier.weight(1f),
             )
         }
         // v2.13.2: hint bar REMOVED per user request — no text under the
         // 4 screens anymore. (MultiViewScreen restored to the v2.11/236
         // version: the v2.13/2.13.1 audio changes are reverted.)
+    }
+        }
     }
 }
 
@@ -416,6 +633,13 @@ private fun QuadPlayer(
     idx: Int,
     playReqs: List<FocusRequester>,
     speakerReqs: List<FocusRequester>,
+    // v2.22.0: singleMode = ye box fullscreen me akela hai —
+    // parosi boxes ke focus jumps band. onFocusControl =
+    // double-OK ki pehchan ke liye (kis box ka konsa button).
+    // onDoubleTap = mouse/touch se double-click → fullscreen.
+    singleMode: Boolean = false,
+    onFocusControl: (Boolean) -> Unit = {},
+    onDoubleTap: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var quadFocused by remember { mutableStateOf(false) }
@@ -445,7 +669,14 @@ private fun QuadPlayer(
             // sirf play/pause aur speaker buttons par chalti hai
             // (Ahmed Bhai ka tay shuda silsila). Touch par tap se
             // pause/play waisa hi hai (pointerInput, focus nahi).
-            .pointerInput(Unit) { detectTapGestures { onTap() } },
+            // v2.22.0: double-click/tap = fullscreen bhi hai;
+            // akela tap pehle ki tarah play/pause hi hai.
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onDoubleTap = { onDoubleTap() },
+                )
+            },
     ) {
         AndroidView(
             factory = { ctx ->
@@ -509,13 +740,14 @@ private fun QuadPlayer(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(6.dp)
-                .onFocusChanged { speakerFocused = it.isFocused }
+                .onFocusChanged { speakerFocused = it.isFocused; if (it.isFocused) onFocusControl(true) }
                 .focusRequester(speakerReqs[idx])
                 // v2.20.0 silsila: speaker se AAGE (Right/Down) =
                 // agle box ka play/pause; PECHHE (Left/Up) = isi
                 // box ka play/pause.
                 .onPreviewKeyEvent { ev ->
                     if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (singleMode) return@onPreviewKeyEvent false
                     when (ev.key) {
                         Key.DirectionRight, Key.DirectionDown -> {
                             if (idx < 3) {
@@ -562,10 +794,11 @@ private fun QuadPlayer(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 6.dp, end = 52.dp)
-                .onFocusChanged { playBtnFocused = it.isFocused }
+                .onFocusChanged { playBtnFocused = it.isFocused; if (it.isFocused) onFocusControl(false) }
                 .focusRequester(playReqs[idx])
                 .onPreviewKeyEvent { ev ->
                     if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (singleMode) return@onPreviewKeyEvent false
                     when (ev.key) {
                         Key.DirectionRight, Key.DirectionDown -> {
                             speakerReqs[idx].requestFocus()
