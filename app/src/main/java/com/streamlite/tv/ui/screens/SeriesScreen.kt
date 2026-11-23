@@ -241,7 +241,10 @@ fun SeriesScreen(
                 ) { Text("No series here.", color = SlTextDim, fontSize = 16.sp) }
                 else -> LazyVerticalGrid(
                     state = ScrollStateStore.seriesGrid,
-                    columns = GridCells.Fixed(5),
+                    // 2026-11-23 (v2.21.0): cards COMPACT — 5 ki
+                    // bajaye 6 columns (unchai kam, zyada series
+                    // ek nazar me). Poster ratio 2:3 barqarar.
+                    columns = GridCells.Fixed(6),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
@@ -285,7 +288,8 @@ fun SeriesScreen(
                                     fontSize = 14.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
+                                    // v2.21.0: compact — ek line.
+                                    maxLines = 1,
                                     modifier = Modifier.padding(horizontal = 4.dp),
                                 )
                                 if (s.rating.isNotEmpty()) {
